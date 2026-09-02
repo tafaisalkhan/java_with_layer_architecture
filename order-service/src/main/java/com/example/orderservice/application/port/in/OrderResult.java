@@ -1,6 +1,7 @@
 package com.example.orderservice.application.port.in;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 public record OrderResult(
@@ -20,6 +21,9 @@ public record OrderResult(
     String currency,
 
     // Current order state. Enum prevents invalid free-text status values.
-    OrderStatusView status
+    OrderStatusView status,
+
+    // Line-level details persisted with the order.
+    List<OrderDetailResult> details
 ) {
 }

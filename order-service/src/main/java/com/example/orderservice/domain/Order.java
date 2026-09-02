@@ -1,6 +1,7 @@
 package com.example.orderservice.domain;
 
 import com.example.common.money.MoneyValue;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -18,32 +19,37 @@ public record Order(
     MoneyValue total,
 
     // Current business state. Use enum values instead of raw strings.
-    OrderStatus status
+    OrderStatus status,
+
+    // Line-level details owned by this order.
+    List<OrderDetail> details
 ) {
     public Order {
         Objects.requireNonNull(id, "id must not be null");
         Objects.requireNonNull(customerId, "customerId must not be null");
         Objects.requireNonNull(total, "total must not be null");
         Objects.requireNonNull(status, "status must not be null");
+        Objects.requireNonNull(details, "details must not be null");
+        details = List.copyOf(details);
     }
 
-    public static Order create(UUID customerId, MoneyValue total) {
-        return new Order(UUID.randomUUID(), customerId, null, total, OrderStatus.CREATED);
+    public static Order create(UUID customerId, MoneyValue total, List<OrderDetail> details) {
+        return new Order(UUID.randomUUID(), customerId, null, total, OrderStatus.CREATED, details);
     }
 
     public Order markPaymentPending(UUID paymentId) {
         Objects.requireNonNull(paymentId, "paymentId must not be null");
-        return new Order(id, customerId, paymentId, total, OrderStatus.PAYMENT_PENDING);
+        return new Order(id, customerId, paymentId, total, OrderStatus.PAYMENT_PENDING, details);
     }
 
     public Order markPaid() {
         if (paymentId == null) {
             throw new IllegalStateException("order must have a payment before it can be paid");
         }
-        return new Order(id, customerId, paymentId, total, OrderStatus.PAID);
+        return new Order(id, customerId, paymentId, total, OrderStatus.PAID, details);
     }
 
     public Order cancel() {
-        return new Order(id, customerId, paymentId, total, OrderStatus.CANCELLED);
+        return new Order(id, customerId, paymentId, total, OrderStatus.CANCELLED, details);
     }
 }

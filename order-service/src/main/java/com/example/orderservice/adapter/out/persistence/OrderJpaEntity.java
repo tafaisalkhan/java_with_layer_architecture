@@ -2,12 +2,17 @@ package com.example.orderservice.adapter.out.persistence;
 
 import com.example.orderservice.domain.OrderStatus;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -33,6 +38,10 @@ public class OrderJpaEntity {
     @Column(name = "status", nullable = false, length = 32)
     private OrderStatus status;
 
+    @ElementCollection
+    @CollectionTable(name = "order_details", joinColumns = @JoinColumn(name = "order_id"))
+    private List<OrderDetailJpaEmbeddable> details = new ArrayList<>();
+
     protected OrderJpaEntity() {
     }
 
@@ -42,7 +51,8 @@ public class OrderJpaEntity {
         UUID paymentId,
         BigDecimal amount,
         String currency,
-        OrderStatus status
+        OrderStatus status,
+        List<OrderDetailJpaEmbeddable> details
     ) {
         this.id = id;
         this.customerId = customerId;
@@ -50,6 +60,7 @@ public class OrderJpaEntity {
         this.amount = amount;
         this.currency = currency;
         this.status = status;
+        this.details = new ArrayList<>(details);
     }
 
     public UUID getId() {
@@ -74,5 +85,9 @@ public class OrderJpaEntity {
 
     public OrderStatus getStatus() {
         return status;
+    }
+
+    public List<OrderDetailJpaEmbeddable> getDetails() {
+        return details;
     }
 }
