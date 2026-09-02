@@ -22,3 +22,42 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
+
+# Java / Maven / Gradle
+target/
+.m2/
+.gradle/
+build/
+out/
+bin/
+*.iml
+.classpath
+.project
+.settings/
+
+# IntelliJ IDEA
+.idea/
+
+# Unreal Engine generated files
+Binaries/
+Build/
+DerivedDataCache/
+Intermediate/
+Saved/
+Script/
+.vs/
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+*.xcodeproj
+*.xcworkspace
+*.xcuserdata/
+*.uprojectdirs
+
+# Unreal Engine packaged/cooked output
+Cooked/
+StagedBuilds/
+Packaged/
