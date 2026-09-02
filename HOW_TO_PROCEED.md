@@ -28,14 +28,14 @@ hexagonal-spring/
   pom.xml
   common/
     pom.xml
-    src/main/java/com/example/common/
+    src/main/java/com/mycloud/common/
       dto/
       event/
       exception/
       web/
   user-service/
     pom.xml
-    src/main/java/com/example/userservice/
+    src/main/java/com/mycloud/userservice/
       UserServiceApplication.java
       domain/
       application/
