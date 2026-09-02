@@ -28,7 +28,6 @@ target/
 .m2/
 .gradle/
 build/
-out/
 bin/
 *.iml
 .classpath
