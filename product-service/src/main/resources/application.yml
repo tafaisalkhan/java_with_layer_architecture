@@ -1,0 +1,18 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: product-service
+  datasource:
+    url: ${PRODUCT_DB_URL:jdbc:mysql://localhost:3306/product_service}
+    username: ${PRODUCT_DB_USERNAME:product_service}
+    password: ${PRODUCT_DB_PASSWORD:product_service}
+  jpa:
+    hibernate:
+      ddl-auto: ${PRODUCT_DB_DDL_AUTO:create}
+    open-in-view: false
+    defer-datasource-initialization: true
+  sql:
+    init:
+      mode: always

@@ -28,7 +28,7 @@ public class PaymentApplicationService implements CreatePaymentUseCase, GetPayme
 
     @Override
     public PaymentResult createPayment(CreatePaymentCommand command) {
-        Payment payment = Payment.create(command.orderId(), command.total());
+        Payment payment = Payment.create(command.invoiceId(), command.total());
         payments.put(payment.id(), payment);
         paymentEventPublisherPort.publishPaymentCreated(payment);
         return toResult(payment);
@@ -46,7 +46,7 @@ public class PaymentApplicationService implements CreatePaymentUseCase, GetPayme
     private PaymentResult toResult(Payment payment) {
         return new PaymentResult(
             payment.id(),
-            payment.orderId(),
+            payment.invoiceId(),
             payment.total().amount(),
             payment.total().currency(),
             toStatusView(payment.status())

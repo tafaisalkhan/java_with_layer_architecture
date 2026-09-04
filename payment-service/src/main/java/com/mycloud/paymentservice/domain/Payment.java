@@ -8,8 +8,8 @@ public record Payment(
     // Unique ID owned by payment-service. Stored as UUID to avoid cross-service ID collisions.
     UUID id,
 
-    // Order ID received from order-service.
-    UUID orderId,
+    // Invoice ID received from invoice-service.
+    UUID invoiceId,
 
     // Monetary amount for the payment. MoneyValue keeps amount and currency together.
     MoneyValue total,
@@ -19,20 +19,20 @@ public record Payment(
 ) {
     public Payment {
         Objects.requireNonNull(id, "id must not be null");
-        Objects.requireNonNull(orderId, "orderId must not be null");
+        Objects.requireNonNull(invoiceId, "invoiceId must not be null");
         Objects.requireNonNull(total, "total must not be null");
         Objects.requireNonNull(status, "status must not be null");
     }
 
-    public static Payment create(UUID orderId, MoneyValue total) {
-        return new Payment(UUID.randomUUID(), orderId, total, PaymentStatus.PENDING);
+    public static Payment create(UUID invoiceId, MoneyValue total) {
+        return new Payment(UUID.randomUUID(), invoiceId, total, PaymentStatus.PENDING);
     }
 
     public Payment approve() {
-        return new Payment(id, orderId, total, PaymentStatus.APPROVED);
+        return new Payment(id, invoiceId, total, PaymentStatus.APPROVED);
     }
 
     public Payment decline() {
-        return new Payment(id, orderId, total, PaymentStatus.DECLINED);
+        return new Payment(id, invoiceId, total, PaymentStatus.DECLINED);
     }
 }

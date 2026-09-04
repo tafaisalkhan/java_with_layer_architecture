@@ -7,8 +7,8 @@ public record PaymentResult(
     // Unique payment ID owned by payment-service.
     UUID paymentId,
 
-    // Order ID from order-service.
-    UUID orderId,
+    // Invoice ID from invoice-service.
+    UUID invoiceId,
 
     // Exact payment amount.
     BigDecimal amount,

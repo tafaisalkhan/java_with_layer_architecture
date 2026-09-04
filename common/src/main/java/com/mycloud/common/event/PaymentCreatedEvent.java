@@ -5,7 +5,7 @@ import java.util.UUID;
 
 public record PaymentCreatedEvent(
     UUID paymentId,
-    UUID orderId,
+    UUID invoiceId,
     BigDecimal amount,
     String currency,
     String status

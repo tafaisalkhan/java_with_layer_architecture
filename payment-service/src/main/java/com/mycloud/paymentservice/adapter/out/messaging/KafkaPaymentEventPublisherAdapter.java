@@ -24,11 +24,11 @@ public class KafkaPaymentEventPublisherAdapter implements PaymentEventPublisherP
     public void publishPaymentCreated(Payment payment) {
         PaymentCreatedEvent event = new PaymentCreatedEvent(
             payment.id(),
-            payment.orderId(),
+            payment.invoiceId(),
             payment.total().amount(),
             payment.total().currency(),
             payment.status().name()
         );
-        kafkaTemplate.send(paymentsCreatedTopic, payment.orderId().toString(), event);
+        kafkaTemplate.send(paymentsCreatedTopic, payment.invoiceId().toString(), event);
     }
 }

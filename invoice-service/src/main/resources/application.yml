@@ -1,0 +1,39 @@
+server:
+  port: 8087
+
+spring:
+  application:
+    name: invoice-service
+  datasource:
+    url: ${INVOICE_DB_URL:jdbc:mysql://localhost:3306/invoice_service}
+    username: ${INVOICE_DB_USERNAME:invoice_service}
+    password: ${INVOICE_DB_PASSWORD:invoice_service}
+  jpa:
+    hibernate:
+      ddl-auto: ${INVOICE_DB_DDL_AUTO:create}
+    open-in-view: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: invoice-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.mycloud.common.event
+        spring.json.use.type.headers: true
+
+app:
+  invoice:
+    payment-term-days: ${INVOICE_PAYMENT_TERM_DAYS:15}
+  billing:
+    vm-charge-amount: ${BILLING_VM_CHARGE_AMOUNT:1.00}
+    currency: ${BILLING_CURRENCY:USD}
+  kafka:
+    topics:
+      contracts-activated: contracts.activated
+      invoices-created: invoices.created
+      payments-created: payments.created
+      operations-succeeded: operations.succeeded

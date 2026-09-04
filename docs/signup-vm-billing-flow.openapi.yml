@@ -1,0 +1,412 @@
+openapi: 3.0.3
+info:
+  title: MyCloud Signup Trial VM Billing Flow
+  version: 0.1.0
+  description: Test flow for signup, default trial contract, signup/free/affiliate credit, VM provisioning, quota movement, operation tracking, and billing charges.
+servers:
+  - url: http://localhost:8082
+    description: customer-service
+  - url: http://localhost:8086
+    description: contract-service
+  - url: http://localhost:8088
+    description: provider-service
+  - url: http://localhost:8089
+    description: orchestrator-service
+  - url: http://localhost:8087
+    description: invoice-service
+tags:
+  - name: Test Flow
+  - name: Customer
+  - name: Contract
+  - name: Credit
+  - name: Provider
+  - name: Operation
+  - name: Billing
+paths:
+  /customers:
+    post:
+      tags: [Customer, Test Flow]
+      summary: Create customer after signup
+      description: Creates the customer and publishes CustomerCreatedEvent. contract-service assigns the default TRIAL contract and grants signup credit.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomerCommand'
+            example:
+              userId: 22222222-2222-2222-2222-222222222222
+              fullName: Trial Customer
+              phone: '+923001234567'
+      responses:
+        '201':
+          description: Customer created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerResult'
+  /contracts/customers/{customerId}/active:
+    get:
+      tags: [Contract, Test Flow]
+      summary: Get default active contract
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      responses:
+        '200':
+          description: Active contract with quota state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContractResult'
+  /contracts/customers/{customerId}/credits:
+    get:
+      tags: [Credit, Test Flow]
+      summary: Get customer credit balance
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      responses:
+        '200':
+          description: Remaining credit balance and credit ledger
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerCreditBalanceResult'
+  /contracts/credits:
+    post:
+      tags: [Credit]
+      summary: Add customer credit
+      description: Adds signup, affiliate, free, or adjustment credit.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddCustomerCreditCommand'
+            example:
+              customerId: 11111111-1111-1111-1111-111111111111
+              type: AFFILIATE
+              amount: 25.00
+              currency: USD
+              reason: Affiliate referral bonus
+      responses:
+        '200':
+          description: Credit ledger row
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerCreditResult'
+  /providers/{providerId}/allowed-customers/{customerId}:
+    post:
+      tags: [Provider, Test Flow]
+      summary: Allow customer to use seeded provider
+      description: Run this after creating the customer and before creating the VM operation.
+      parameters:
+        - name: providerId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          example: 33333333-3333-3333-3333-333333333333
+        - $ref: '#/components/parameters/CustomerId'
+      responses:
+        '200':
+          description: Provider updated
+  /operations/create-vm:
+    post:
+      tags: [Operation, Test Flow]
+      summary: Submit VM provisioning operation
+      description: Saves a PENDING operation immediately. Scheduler later reserves quota, provisions VM, commits quota, and records billing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateVmCommand'
+            example:
+              customerId: 11111111-1111-1111-1111-111111111111
+              providerId: 33333333-3333-3333-3333-333333333333
+              name: trial-vm
+              imageId: ubuntu-22.04
+              flavorId: small
+              networkId: private
+              priority: HIGH
+      responses:
+        '201':
+          description: Operation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResult'
+  /operations/{operationId}:
+    get:
+      tags: [Operation, Test Flow]
+      summary: Poll operation status
+      parameters:
+        - name: operationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Operation progress, retry, and rollback state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResult'
+  /invoices/customers/{customerId}/charges:
+    get:
+      tags: [Billing, Test Flow]
+      summary: Get customer VM billing charges
+      description: invoice-service records these rows after OperationSucceededEvent. Default VM charge is BILLING_VM_CHARGE_AMOUNT, currently 1.00 USD.
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      responses:
+        '200':
+          description: Customer usage billing charges
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BillingChargeResult'
+components:
+  parameters:
+    CustomerId:
+      name: customerId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    CreateCustomerCommand:
+      type: object
+      required: [userId, fullName, phone]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        phone:
+          type: string
+    CustomerResult:
+      type: object
+      properties:
+        customerId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        phone:
+          type: string
+    ContractResult:
+      type: object
+      properties:
+        contractId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [PAY_AS_YOU_GO, FIXED_CONTRACT, RESERVED]
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        status:
+          type: string
+        totalAmount:
+          type: number
+        currency:
+          type: string
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/ContractProductResult'
+    ContractProductResult:
+      type: object
+      properties:
+        productId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+        quantity:
+          type: integer
+        unitAmount:
+          type: number
+        currency:
+          type: string
+        lineAmount:
+          type: number
+        availableQuantity:
+          type: integer
+        pendingQuantity:
+          type: integer
+        consumedQuantity:
+          type: integer
+    AddCustomerCreditCommand:
+      type: object
+      required: [customerId, amount, currency, reason]
+      properties:
+        customerId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [SIGNUP, AFFILIATE, FREE, ADJUSTMENT]
+        amount:
+          type: number
+          minimum: 0.01
+        currency:
+          type: string
+        reason:
+          type: string
+    CustomerCreditBalanceResult:
+      type: object
+      properties:
+        customerId:
+          type: string
+          format: uuid
+        remainingAmount:
+          type: number
+        currency:
+          type: string
+        credits:
+          type: array
+          items:
+            $ref: '#/components/schemas/CustomerCreditResult'
+    CustomerCreditResult:
+      type: object
+      properties:
+        creditId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+        type:
+          type: string
+        amount:
+          type: number
+        remainingAmount:
+          type: number
+        currency:
+          type: string
+        reason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    CreateVmCommand:
+      type: object
+      required: [customerId, providerId, name, imageId, flavorId, networkId]
+      properties:
+        customerId:
+          type: string
+          format: uuid
+        providerId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        imageId:
+          type: string
+        flavorId:
+          type: string
+        networkId:
+          type: string
+        priority:
+          type: string
+          enum: [CRITICAL, HIGH, NORMAL, LOW]
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 100
+    OperationResult:
+      type: object
+      properties:
+        operationId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+        providerId:
+          type: string
+          format: uuid
+        operationType:
+          type: string
+        resourceType:
+          type: string
+        priority:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, RUNNING, ROLLING_BACK, ROLLED_BACK, SUCCEEDED, FAILED]
+        provisionedResourceId:
+          type: string
+        failureReason:
+          type: string
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationStepResult'
+    OperationStepResult:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, RUNNING, SUCCEEDED, FAILED]
+        failureReason:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        finishedAt:
+          type: string
+          format: date-time
+        attemptCount:
+          type: integer
+        nextRetryAt:
+          type: string
+          format: date-time
+    BillingChargeResult:
+      type: object
+      properties:
+        chargeId:
+          type: string
+          format: uuid
+        operationId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+        resourceId:
+          type: string
+        resourceType:
+          type: string
+        amount:
+          type: number
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [PENDING_INVOICE, INVOICED]
+        createdAt:
+          type: string
+          format: date-time

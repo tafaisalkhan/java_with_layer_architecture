@@ -1,0 +1,36 @@
+server:
+  port: 8089
+
+spring:
+  application:
+    name: orchestrator-service
+  datasource:
+    url: ${ORCHESTRATOR_DB_URL:jdbc:mysql://localhost:3306/orchestrator_service}
+    username: ${ORCHESTRATOR_DB_USERNAME:orchestrator_service}
+    password: ${ORCHESTRATOR_DB_PASSWORD:orchestrator_service}
+  jpa:
+    hibernate:
+      ddl-auto: ${ORCHESTRATOR_DB_DDL_AUTO:create}
+    open-in-view: false
+    defer-datasource-initialization: true
+  sql:
+    init:
+      mode: always
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+app:
+  provider-service:
+    base-url: ${PROVIDER_SERVICE_BASE_URL:http://localhost:8088}
+  contract-service:
+    base-url: ${CONTRACT_SERVICE_BASE_URL:http://localhost:8086}
+  kafka:
+    topics:
+      operations-succeeded: operations.succeeded
+      operations-failed: operations.failed
+  scheduler:
+    fixed-delay-ms: ${OPERATION_SCHEDULER_FIXED_DELAY_MS:5000}
+    batch-size: ${OPERATION_SCHEDULER_BATCH_SIZE:5}

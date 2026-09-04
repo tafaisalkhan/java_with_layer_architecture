@@ -1,0 +1,36 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: contract-service
+  datasource:
+    url: ${CONTRACT_DB_URL:jdbc:mysql://localhost:3306/contract_service}
+    username: ${CONTRACT_DB_USERNAME:contract_service}
+    password: ${CONTRACT_DB_PASSWORD:contract_service}
+  jpa:
+    hibernate:
+      ddl-auto: ${CONTRACT_DB_DDL_AUTO:create}
+    open-in-view: false
+    defer-datasource-initialization: true
+  sql:
+    init:
+      mode: always
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.mycloud.common.event
+
+app:
+  product-service:
+    base-url: ${PRODUCT_SERVICE_BASE_URL:http://localhost:8085}
+  kafka:
+    topics:
+      contracts-activated: contracts.activated
+      customers-created: customers.created

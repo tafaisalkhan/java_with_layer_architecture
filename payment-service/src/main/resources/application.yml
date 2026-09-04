@@ -20,5 +20,5 @@ spring:
 app:
   kafka:
     topics:
-      orders-created: orders.created
+      invoices-created: invoices.created
       payments-created: payments.created

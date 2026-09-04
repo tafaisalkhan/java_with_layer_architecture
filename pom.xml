@@ -16,7 +16,11 @@
         <module>common</module>
         <module>user-service</module>
         <module>customer-service</module>
-        <module>order-service</module>
+        <module>product-service</module>
+        <module>contract-service</module>
+        <module>provider-service</module>
+        <module>orchestrator-service</module>
+        <module>invoice-service</module>
         <module>payment-service</module>
     </modules>
 
