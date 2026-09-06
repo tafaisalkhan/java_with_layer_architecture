@@ -15,7 +15,6 @@
     <modules>
         <module>common</module>
         <module>user-service</module>
-        <module>customer-service</module>
         <module>product-service</module>
         <module>contract-service</module>
         <module>provider-service</module>
@@ -23,7 +22,6 @@
         <module>invoice-service</module>
         <module>payment-service</module>
         <module>api-gateway</module>
-        <module>authorization-service</module>
     </modules>
 
     <properties>

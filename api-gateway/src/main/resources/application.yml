@@ -12,8 +12,8 @@ spring:
           uri: ${USER_SERVICE_URL:http://localhost:8081}
           predicates: [Path=/api/users/**]
           filters: [StripPrefix=1]
-        - id: customer-service
-          uri: ${CUSTOMER_SERVICE_URL:http://localhost:8082}
+        - id: user-customer-profile
+          uri: ${USER_SERVICE_URL:http://localhost:8081}
           predicates: [Path=/api/customers/**]
           filters: [StripPrefix=1]
         - id: payment-service
@@ -40,13 +40,13 @@ spring:
           uri: ${ORCHESTRATOR_SERVICE_URL:http://localhost:8089}
           predicates: [Path=/api/operations/**]
           filters: [StripPrefix=1]
-        - id: authorization-service
-          uri: ${AUTHORIZATION_SERVICE_URL:http://localhost:8091}
+        - id: user-authorization
+          uri: ${USER_SERVICE_URL:http://localhost:8081}
           predicates: [Path=/api/authorization/**]
           filters: [StripPrefix=1]
 
 gateway:
-  authorization-service-url: ${AUTHORIZATION_SERVICE_URL:http://localhost:8091}
+  user-authorization-url: ${USER_SERVICE_URL:http://localhost:8081}
   # Development default only. Production must inject a random secret of at least 32 bytes.
   security:
     jwt:

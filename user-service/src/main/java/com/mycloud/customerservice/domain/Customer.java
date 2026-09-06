@@ -4,7 +4,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 public record Customer(
-    // Unique ID owned by customer-service. Stored as UUID to avoid cross-service ID collisions.
+    // Customer profile ID owned by user-service. Stored as UUID to avoid ID collisions.
     UUID id,
 
     // User ID received from user-service. This service validates it through an output port.

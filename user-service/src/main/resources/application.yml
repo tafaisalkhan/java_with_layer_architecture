@@ -4,3 +4,24 @@ server:
 spring:
   application:
     name: user-service
+  datasource:
+    url: ${USER_DB_URL:jdbc:mysql://localhost:3306/user_service}
+    username: ${USER_DB_USERNAME:user_service}
+    password: ${USER_DB_PASSWORD:user_service}
+  jpa:
+    hibernate:
+      ddl-auto: ${USER_DB_DDL_AUTO:update}
+    open-in-view: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+authorization:
+  bootstrap-admin-subject: ${AUTHORIZATION_BOOTSTRAP_ADMIN_SUBJECT:ede24cbc-3a79-40d2-b755-b25a1b003fc7}
+
+app:
+  kafka:
+    topics:
+      customers-created: customers.created

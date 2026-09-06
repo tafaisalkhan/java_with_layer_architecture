@@ -7,13 +7,14 @@ The `api-gateway` module is the only intended public API entry point. It listens
 | Public gateway path | Internal service |
 | --- | --- |
 | `/api/users/**` | user-service:8081 |
-| `/api/customers/**` | customer-service:8082 |
+| `/api/customers/**` | user-service:8081 |
 | `/api/payments/**` | payment-service:8084 |
 | `/api/products/**` | product-service:8085 |
 | `/api/contracts/**` | contract-service:8086 |
 | `/api/invoices/**` | invoice-service:8087 |
 | `/api/providers/**` | provider-service:8088 |
 | `/api/operations/**` | orchestrator-service:8089 |
+| `/api/authorization/**` | user-service:8081 |
 
 Service URLs are environment-configurable. Services can continue calling one another through their internal URLs; they should not make internal calls through the public gateway.
 
@@ -66,7 +67,7 @@ Standard scopes become `SCOPE_*` authorities. Keycloak roles from `realm_access.
 
 In local mode, production-like secrets must contain at least 32 bytes. Prefer Keycloak/issuer mode with asymmetric signing for deployed environments.
 
-This gateway validates tokens but does not issue them because the current project has no authentication/identity service. Add login and token issuance to a dedicated identity service rather than placing user-password authentication inside the gateway.
+This gateway validates tokens but does not issue them. Keycloak owns login and token issuance. `user-service` owns application users and database-driven authorization.
 
 ## Rate Limiting
 

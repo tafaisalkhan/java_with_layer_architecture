@@ -3,7 +3,7 @@ package com.mycloud.customerservice.application.port.in;
 import java.util.UUID;
 
 public record CustomerResult(
-    // Unique customer ID owned by customer-service.
+    // Unique customer profile ID owned by user-service.
     UUID customerId,
 
     // User ID from user-service connected to this customer profile.

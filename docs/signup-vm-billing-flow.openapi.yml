@@ -4,8 +4,8 @@ info:
   version: 0.1.0
   description: Test flow for signup, default trial contract, signup/free/affiliate credit, VM provisioning, quota movement, operation tracking, and billing charges.
 servers:
-  - url: http://localhost:8082
-    description: customer-service
+  - url: http://localhost:8081
+    description: user-service (user, customer profile, and RBAC)
   - url: http://localhost:8086
     description: contract-service
   - url: http://localhost:8088
@@ -26,7 +26,7 @@ paths:
   /customers:
     post:
       servers:
-        - url: http://localhost:8082
+        - url: http://localhost:8081
       tags: [Customer, Test Flow]
       summary: Create customer after signup
       description: Creates the customer and publishes CustomerCreatedEvent. contract-service assigns the default TRIAL contract and grants signup credit.

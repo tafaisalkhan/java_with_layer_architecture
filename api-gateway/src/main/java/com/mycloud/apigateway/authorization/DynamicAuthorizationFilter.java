@@ -16,7 +16,7 @@ import reactor.core.publisher.Mono;
 @Component
 public class DynamicAuthorizationFilter implements GlobalFilter, Ordered {
     private final WebClient authorizationClient;
-    public DynamicAuthorizationFilter(@Value("${gateway.authorization-service-url:http://localhost:8091}") String url){authorizationClient=WebClient.builder().baseUrl(url).build();}
+    public DynamicAuthorizationFilter(@Value("${gateway.user-authorization-url:http://localhost:8081}") String url){authorizationClient=WebClient.builder().baseUrl(url).build();}
 
     @Override public Mono<Void> filter(ServerWebExchange exchange,GatewayFilterChain chain){
         String path=exchange.getRequest().getPath().value(); HttpMethod method=exchange.getRequest().getMethod();
