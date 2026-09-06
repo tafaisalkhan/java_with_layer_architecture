@@ -36,8 +36,16 @@ app:
     batch-size: ${OPERATION_SCHEDULER_BATCH_SIZE:10}
     worker-threads: ${OPERATION_SCHEDULER_WORKER_THREADS:10}
   provisioning:
-    poll-interval-seconds: ${VM_POLL_INTERVAL_SECONDS:5}
+    poll-interval-seconds: ${VM_POLL_INTERVAL_SECONDS:20}
     build-timeout-seconds: ${VM_BUILD_TIMEOUT_SECONDS:900}
+  provider-session:
+    token-lifetime-seconds: ${PROVIDER_TOKEN_LIFETIME_SECONDS:300}
+    refresh-before-expiry-seconds: ${PROVIDER_TOKEN_REFRESH_WINDOW_SECONDS:30}
+  token-encryption-key: ${TOKEN_ENCRYPTION_KEY:local-development-token-encryption-key-change-me}
+  huawei-token:
+    token-lifetime-seconds: ${HUAWEI_TOKEN_LIFETIME_SECONDS:7200}
+    refresh-before-expiry-seconds: ${HUAWEI_TOKEN_REFRESH_WINDOW_SECONDS:600}
+    refresh-cron: ${HUAWEI_TOKEN_REFRESH_CRON:0 0 * * * *}
   mock-provider-credentials:
     openstack:
       username: ${MOCK_OPENSTACK_USERNAME:openstack-admin}
