@@ -7,6 +7,7 @@ public record OperationResult(
     UUID operationId,
     UUID customerId,
     UUID providerId,
+    UUID contractId,
     String operationType,
     String resourceType,
     String priority,

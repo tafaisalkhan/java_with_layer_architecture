@@ -30,6 +30,9 @@ public class OperationJpaEntity {
     @Column(name = "provider_id", nullable = false)
     private UUID providerId;
 
+    @Column(name = "contract_id")
+    private UUID contractId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "operation_type", nullable = false, length = 32)
     private OperationType type;
@@ -75,6 +78,7 @@ public class OperationJpaEntity {
         UUID id,
         UUID customerId,
         UUID providerId,
+        UUID contractId,
         OperationType type,
         ResourceType resourceType,
         OperationPriority priority,
@@ -90,6 +94,7 @@ public class OperationJpaEntity {
         this.id = id;
         this.customerId = customerId;
         this.providerId = providerId;
+        this.contractId = contractId;
         this.type = type;
         this.resourceType = resourceType;
         this.priority = priority;
@@ -113,6 +118,10 @@ public class OperationJpaEntity {
 
     public UUID getProviderId() {
         return providerId;
+    }
+
+    public UUID getContractId() {
+        return contractId;
     }
 
     public OperationType getType() {

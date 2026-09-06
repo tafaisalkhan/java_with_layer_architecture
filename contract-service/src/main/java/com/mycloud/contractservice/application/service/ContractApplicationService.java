@@ -69,25 +69,34 @@ public class ContractApplicationService implements CreateContractUseCase, GetCon
 
     @Override
     public ContractResult reserveQuota(QuotaCommand command) {
-        Contract contract = activeContract(command.customerId()).reserveQuota(command.productId(), command.quantity());
+        Contract contract = requestedContract(command).reserveQuota(command.productId(), command.quantity());
         return toResult(contractRepositoryPort.save(contract));
     }
 
     @Override
     public ContractResult commitQuota(QuotaCommand command) {
-        Contract contract = activeContract(command.customerId()).commitQuota(command.productId(), command.quantity());
+        Contract contract = requestedContract(command).commitQuota(command.productId(), command.quantity());
         return toResult(contractRepositoryPort.save(contract));
     }
 
     @Override
     public ContractResult releaseQuota(QuotaCommand command) {
-        Contract contract = activeContract(command.customerId()).releaseQuota(command.productId(), command.quantity());
+        Contract contract = requestedContract(command).releaseQuota(command.productId(), command.quantity());
         return toResult(contractRepositoryPort.save(contract));
     }
 
     private Contract activeContract(java.util.UUID customerId) {
         return contractRepositoryPort.findActiveByCustomerId(customerId)
             .orElseThrow(() -> new NoSuchElementException("active contract not found for customer: " + customerId));
+    }
+
+    private Contract requestedContract(QuotaCommand command) {
+        Contract contract = contractRepositoryPort.findById(command.contractId())
+            .orElseThrow(() -> new NoSuchElementException("contract not found: " + command.contractId()));
+        if (!contract.customerId().equals(command.customerId())) {
+            throw new IllegalArgumentException("contract does not belong to customer: " + command.customerId());
+        }
+        return contract;
     }
 
     private List<ContractProduct> toProducts(List<ContractProductCommand> commands) {

@@ -11,7 +11,7 @@ class OperationPollingTest {
     @Test
     void waitingForProviderReleasesOperationUntilNextPoll() {
         Operation operation = Operation.createVm(
-            UUID.randomUUID(), UUID.randomUUID(), OperationPriority.NORMAL,
+            UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), OperationPriority.NORMAL,
             new ResourceRequest("vm-1", "image", "flavor", "network"),
             List.of(OperationStepName.WAIT_FOR_VM_ACTIVE)
         );

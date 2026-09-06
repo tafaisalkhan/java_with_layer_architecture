@@ -8,6 +8,8 @@ There are three different concepts and they must not be collapsed into one table
 - **Shared contract definition**: a reusable plan such as `TRIAL`, containing duration and product-specific price and quantity rules.
 - **Customer contract assignment**: connects one customer to a shared contract and stores that customer's dates, status, and usage.
 
+Each shared contract definition belongs to exactly one infrastructure provider (`OPENSTACK`, `VMWARE`, `HUAWEI`, or another provider implementation). A definition cannot mix products from different providers. A customer may have multiple active assignments at the same time, including multiple contracts assigned automatically at signup, as long as each assignment identifies its provider.
+
 ## Price behavior
 
 - A product owns a dated price history.
@@ -42,6 +44,19 @@ Each catalog product is a concrete SKU. For example, 200 GB and 500 GB disks are
 A VM provisioning request can consume multiple entitlements atomically: one selected `IMAGE`, one selected `FLAVOR`, optionally one `DISK` tier, and optionally one `IP`. The contract service must reserve every required entitlement before provider provisioning starts. If any entitlement is unavailable, it rolls back all reservations. Successful provisioning commits them all; deletion releases the matching usage records.
 
 Usage keys must include `customerAssignmentId` and `productId`. They must not use only a broad resource type such as `VM`, because different images, flavors, and disk sizes have independent limits.
+
+## Operation admission order
+
+Every create-resource request must contain `customerId`, `providerId`, and the concrete requested product IDs. The orchestrator performs a read-only admission check before saving a pending operation:
+
+1. Validate the authenticated customer owns `customerId`.
+2. Ask provider-service whether that customer is enabled for `providerId`.
+3. Find an active, non-expired customer contract assignment for the same `providerId`.
+4. Verify every requested image, flavor, disk, and IP product belongs to that provider and is enabled in that assigned contract.
+5. Verify sufficient per-product quota is available.
+6. Only after all checks pass, save the pending operation for scheduler execution.
+
+Execution later reserves all entitlements atomically before contacting the provider. This second check prevents races between requests. Admission failure returns `403` for provider/contract access denial or `409` for insufficient quota, and no operation row is created.
 
 Assignments reference the shared definition instead of copying its mutable terms. Historical invoices must retain their own billed-price snapshots and must never be recalculated.
 

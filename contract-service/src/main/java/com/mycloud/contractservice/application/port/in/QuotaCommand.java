@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import java.util.UUID;
 
 public record QuotaCommand(
+    @NotNull UUID contractId,
     @NotNull UUID customerId,
     @NotNull UUID productId,
     @Min(1) int quantity

@@ -1,9 +1,11 @@
 openapi: 3.0.3
 info:
-  title: MyCloud Signup Trial VM Billing Flow
-  version: 0.1.0
-  description: Test flow for signup, default trial contract, signup/free/affiliate credit, VM provisioning, quota movement, operation tracking, and billing charges.
+  title: MyCloud Provider Contract and Provisioning API
+  version: 0.2.0
+  description: API contract for provider-specific shared contracts, customer assignments, product entitlements, pre-save operation admission, quota movement, and billing.
 servers:
+  - url: http://localhost:8090/api
+    description: API gateway (preferred client entry point)
   - url: http://localhost:8081
     description: user-service (user, customer profile, and RBAC)
   - url: http://localhost:8086
@@ -22,14 +24,169 @@ tags:
   - name: Provider
   - name: Operation
   - name: Billing
+  - name: Product
+  - name: Contract Definition
+  - name: Assignment
+  - name: Admission
 paths:
+  /products:
+    post:
+      servers:
+        - url: http://localhost:8086
+      tags: [Product]
+      summary: Create a provider product SKU
+      description: Creates an IMAGE, FLAVOR, DISK tier, or IP product. Administrative endpoint.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProviderProductCommand'
+      responses:
+        '201':
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderProductResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /products/{productId}/price:
+    patch:
+      servers:
+        - url: http://localhost:8086
+      tags: [Product]
+      summary: Schedule a catalog price
+      description: Affects only shared contracts created after the new catalog price becomes effective. Existing contract definitions are unchanged.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCatalogPriceCommand'
+      responses:
+        '200':
+          description: Updated catalog product
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProviderProductResult'
+  /contract-definitions:
+    post:
+      servers:
+        - url: http://localhost:8086
+      tags: [Contract Definition]
+      summary: Create a provider-specific shared contract
+      description: A contract belongs to exactly one provider and may contain only products belonging to that provider.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateContractDefinitionCommand'
+      responses:
+        '201':
+          description: Shared contract created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContractDefinitionResult'
+  /contract-definitions/{contractDefinitionId}:
+    patch:
+      servers:
+        - url: http://localhost:8086
+      tags: [Contract Definition]
+      summary: Change shared contract terms
+      description: Product additions/removals, limits, prices, and duration changes immediately apply to every active non-expired customer assignment of this definition.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractDefinitionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateContractDefinitionCommand'
+      responses:
+        '200':
+          description: Shared contract updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContractDefinitionResult'
+  /contract-definitions/{contractDefinitionId}/assignments:
+    post:
+      servers:
+        - url: http://localhost:8086
+      tags: [Assignment]
+      summary: Assign a shared contract to a customer
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ContractDefinitionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignCustomerContractCommand'
+      responses:
+        '201':
+          description: Customer assignment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerContractAssignmentResult'
+  /contracts/admission/check:
+    post:
+      servers:
+        - url: http://localhost:8086
+      tags: [Admission]
+      summary: Check provider contract and product eligibility
+      description: Read-only validation used before the orchestrator saves an operation. It verifies an active assignment for the same provider, requested products, and quota.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OperationAdmissionCommand'
+      responses:
+        '200':
+          description: Operation may be persisted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationAdmissionResult'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Insufficient product quota
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /customers:
     post:
       servers:
         - url: http://localhost:8081
       tags: [Customer, Test Flow]
       summary: Create customer after signup
-      description: Creates the customer and publishes CustomerCreatedEvent. contract-service assigns the default TRIAL contract and grants signup credit.
+      description: Creates the customer and publishes CustomerCreatedEvent. Contract-service assigns every active provider-specific contract definition marked assignOnSignup, so one customer may receive multiple contracts, and grants signup credit.
       requestBody:
         required: true
         content:
@@ -122,27 +279,30 @@ paths:
       responses:
         '200':
           description: Provider updated
-  /operations/create-vm:
+  /operations/initiate:
     post:
       servers:
         - url: http://localhost:8089
       tags: [Operation, Test Flow]
-      summary: Submit VM provisioning operation
-      description: Saves a PENDING operation immediately. Scheduler later reserves quota, provisions VM, commits quota, and records billing.
+      summary: Initiate an operation
+      description: Before persistence, verifies customer ownership, provider access, a same-provider active contract assignment, requested image/flavor/disk/IP products, and available quota. Only an admitted request creates a PENDING operation. Execution atomically reserves entitlements before provider provisioning.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateVmCommand'
+              $ref: '#/components/schemas/InitiateOperationCommand'
             example:
-              customerId: 11111111-1111-1111-1111-111111111111
-              providerId: 33333333-3333-3333-3333-333333333333
-              name: trial-vm
-              imageId: ubuntu-22.04
-              flavorId: small
-              networkId: private
-              priority: HIGH
+              contract_id: 12936280-bcd2-4d65-bca7-9e34006432eb
+              provider_id: 33333333-3333-3333-3333-333333333333
+              operation_name: CREATE_VM
+              details:
+                resource_type: VM
+                resource_name: trial-vm
+                image_id: ubuntu-22.04
+                flavor_id: small
+                network_id: private
+                priority: HIGH
       responses:
         '201':
           description: Operation accepted
@@ -150,6 +310,18 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/OperationResult'
+        '403':
+          description: Customer cannot use the provider or has no matching provider contract
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: A requested product is unavailable or over quota; no operation is saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /operations/{operationId}:
     get:
       servers:
@@ -189,6 +361,11 @@ paths:
                 items:
                   $ref: '#/components/schemas/BillingChargeResult'
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   parameters:
     CustomerId:
       name: customerId
@@ -197,7 +374,237 @@ components:
       schema:
         type: string
         format: uuid
+    ProductId:
+      name: productId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ContractDefinitionId:
+      name: contractDefinitionId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Missing, invalid, or expired JWT
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Authenticated principal lacks permission or provider/contract access
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount:
+          type: number
+          minimum: 0
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+    CreateProviderProductCommand:
+      type: object
+      required: [providerId, type, name, providerResourceId, price, effectiveFrom]
+      properties:
+        providerId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [IMAGE, FLAVOR, DISK, IP]
+        name:
+          type: string
+        providerResourceId:
+          type: string
+          description: Provider-side image, flavor, disk tier, or IP-pool identifier.
+        diskSizeGb:
+          type: integer
+          minimum: 1
+          description: Required only for DISK products; examples are 200, 500, and 1024.
+        price:
+          $ref: '#/components/schemas/Money'
+        effectiveFrom:
+          type: string
+          format: date
+    UpdateCatalogPriceCommand:
+      type: object
+      required: [price, effectiveFrom]
+      properties:
+        price:
+          $ref: '#/components/schemas/Money'
+        effectiveFrom:
+          type: string
+          format: date
+    ProviderProductResult:
+      allOf:
+        - $ref: '#/components/schemas/CreateProviderProductCommand'
+        - type: object
+          required: [productId, status]
+          properties:
+            productId:
+              type: string
+              format: uuid
+            status:
+              type: string
+              enum: [ACTIVE, INACTIVE]
+    ContractDefinitionProductCommand:
+      type: object
+      required: [productId, limitQuantity, unitPrice, provisioningEnabled]
+      properties:
+        productId:
+          type: string
+          format: uuid
+        limitQuantity:
+          type: integer
+          minimum: 0
+        unitPrice:
+          $ref: '#/components/schemas/Money'
+        provisioningEnabled:
+          type: boolean
+    CreateContractDefinitionCommand:
+      type: object
+      required: [code, providerId, type, durationDays, products]
+      properties:
+        code:
+          type: string
+          example: OPENSTACK_TRIAL
+        providerId:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [PAY_AS_YOU_GO, FIXED_CONTRACT, RESERVED]
+        durationDays:
+          type: integer
+          minimum: 1
+        assignOnSignup:
+          type: boolean
+          default: false
+        products:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ContractDefinitionProductCommand'
+    UpdateContractDefinitionCommand:
+      type: object
+      description: Complete replacement of mutable shared terms. Usage for removed products is retained until it reaches zero.
+      properties:
+        durationDays:
+          type: integer
+          minimum: 1
+        assignOnSignup:
+          type: boolean
+        products:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ContractDefinitionProductCommand'
+    ContractDefinitionResult:
+      allOf:
+        - $ref: '#/components/schemas/CreateContractDefinitionCommand'
+        - type: object
+          required: [contractDefinitionId, status]
+          properties:
+            contractDefinitionId:
+              type: string
+              format: uuid
+            status:
+              type: string
+              enum: [ACTIVE, INACTIVE]
+    AssignCustomerContractCommand:
+      type: object
+      required: [customerId, startDate]
+      properties:
+        customerId:
+          type: string
+          format: uuid
+        startDate:
+          type: string
+          format: date
+    CustomerContractAssignmentResult:
+      type: object
+      required: [assignmentId, contractDefinitionId, customerId, providerId, startDate, endDate, status]
+      properties:
+        assignmentId:
+          type: string
+          format: uuid
+        contractDefinitionId:
+          type: string
+          format: uuid
+        customerId:
+          type: string
+          format: uuid
+        providerId:
+          type: string
+          format: uuid
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [ACTIVE, EXPIRED, CANCELLED]
+    RequestedEntitlement:
+      type: object
+      required: [productId, quantity]
+      properties:
+        productId:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+    OperationAdmissionCommand:
+      type: object
+      required: [customerId, providerId, products]
+      properties:
+        customerId:
+          type: string
+          format: uuid
+        providerId:
+          type: string
+          format: uuid
+        products:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/RequestedEntitlement'
+    OperationAdmissionResult:
+      type: object
+      required: [allowed, assignmentId, providerId]
+      properties:
+        allowed:
+          type: boolean
+        assignmentId:
+          type: string
+          format: uuid
+        providerId:
+          type: string
+          format: uuid
+    ErrorResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
     CreateCustomerCommand:
       type: object
       required: [userId, fullName, phone]
@@ -325,31 +732,41 @@ components:
         createdAt:
           type: string
           format: date-time
-    CreateVmCommand:
+    InitiateOperationCommand:
       type: object
-      required: [customerId, providerId, name, imageId, flavorId, networkId]
+      description: Customer identity is derived from the authenticated token and is never accepted from this request body.
+      required: [contract_id, provider_id, operation_name, details]
       properties:
-        customerId:
+        contract_id:
           type: string
           format: uuid
-        providerId:
+        provider_id:
           type: string
           format: uuid
-        name:
+        operation_name:
           type: string
-        imageId:
+          enum: [CREATE_VM]
+        details:
+          $ref: '#/components/schemas/OperationDetails'
+    OperationDetails:
+      type: object
+      required: [resource_type, resource_name, image_id, flavor_id, network_id]
+      properties:
+        resource_type:
           type: string
-        flavorId:
+          enum: [VM]
+        resource_name:
           type: string
-        networkId:
+        image_id:
+          type: string
+        flavor_id:
+          type: string
+          description: Provider flavor identifier allowed by the selected contract.
+        network_id:
           type: string
         priority:
           type: string
           enum: [CRITICAL, HIGH, NORMAL, LOW]
-        quantity:
-          type: integer
-          minimum: 1
-          maximum: 100
     OperationResult:
       type: object
       properties:
@@ -360,6 +777,9 @@ components:
           type: string
           format: uuid
         providerId:
+          type: string
+          format: uuid
+        contractId:
           type: string
           format: uuid
         operationType:

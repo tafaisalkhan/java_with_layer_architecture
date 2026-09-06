@@ -24,24 +24,24 @@ public class ContractQuotaAdapter implements QuotaManagementPort {
     }
 
     @Override
-    public void ensureQuotaAvailable(UUID customerId, ResourceType resourceType, ResourceRequest request) {
-        postQuota(RESERVE_QUOTA_PATH, customerId, resourceType);
+    public void ensureQuotaAvailable(UUID contractId, UUID customerId, ResourceType resourceType, ResourceRequest request) {
+        postQuota(RESERVE_QUOTA_PATH, contractId, customerId, resourceType);
     }
 
     @Override
-    public void commitQuota(UUID customerId, ResourceType resourceType, ResourceRequest request) {
-        postQuota(COMMIT_QUOTA_PATH, customerId, resourceType);
+    public void commitQuota(UUID contractId, UUID customerId, ResourceType resourceType, ResourceRequest request) {
+        postQuota(COMMIT_QUOTA_PATH, contractId, customerId, resourceType);
     }
 
     @Override
-    public void releaseQuota(UUID customerId, ResourceType resourceType, ResourceRequest request) {
-        postQuota(RELEASE_QUOTA_PATH, customerId, resourceType);
+    public void releaseQuota(UUID contractId, UUID customerId, ResourceType resourceType, ResourceRequest request) {
+        postQuota(RELEASE_QUOTA_PATH, contractId, customerId, resourceType);
     }
 
-    private void postQuota(String uri, UUID customerId, ResourceType resourceType) {
+    private void postQuota(String uri, UUID contractId, UUID customerId, ResourceType resourceType) {
         restClient.post()
             .uri(uri)
-            .body(new QuotaRequest(customerId, quotaProductId(resourceType), 1))
+            .body(new QuotaRequest(contractId, customerId, quotaProductId(resourceType), 1))
             .retrieve()
             .toBodilessEntity();
     }
@@ -53,6 +53,6 @@ public class ContractQuotaAdapter implements QuotaManagementPort {
         };
     }
 
-    private record QuotaRequest(UUID customerId, UUID productId, int quantity) {
+    private record QuotaRequest(UUID contractId, UUID customerId, UUID productId, int quantity) {
     }
 }

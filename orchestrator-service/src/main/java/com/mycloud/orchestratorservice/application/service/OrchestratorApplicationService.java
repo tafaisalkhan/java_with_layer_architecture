@@ -5,7 +5,6 @@ import com.mycloud.orchestratorservice.application.port.in.CreateVmCommand;
 import com.mycloud.orchestratorservice.application.port.in.OperationResult;
 import com.mycloud.orchestratorservice.application.port.in.OperationStepResult;
 import com.mycloud.orchestratorservice.application.port.in.usecase.CreateVmOperationUseCase;
-import com.mycloud.orchestratorservice.application.port.in.usecase.CreateVmOperationsUseCase;
 import com.mycloud.orchestratorservice.application.port.in.usecase.GetOperationUseCase;
 import com.mycloud.orchestratorservice.application.port.out.spi.BillingPort;
 import com.mycloud.orchestratorservice.application.port.out.spi.MonitoringPort;
@@ -43,7 +42,7 @@ import org.springframework.beans.factory.annotation.Value;
 
 @Service
 @Validated
-public class OrchestratorApplicationService implements CreateVmOperationUseCase, CreateVmOperationsUseCase, GetOperationUseCase {
+public class OrchestratorApplicationService implements CreateVmOperationUseCase, GetOperationUseCase {
     private final OperationRepositoryPort operationRepositoryPort;
     private final QuotaManagementPort quotaManagementPort;
     private final ResourceEligibilityPort resourceEligibilityPort;
@@ -93,20 +92,16 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
         return createPendingVmOperation(command, command.name());
     }
 
-    @Override
-    public List<OperationResult> createVms(CreateVmCommand command) {
-        int quantity = command.requestedQuantity();
-        return java.util.stream.IntStream.rangeClosed(1, quantity)
-            .mapToObj(index -> createPendingVmOperation(command, quantity == 1 ? command.name() : command.name() + "-" + index))
-            .toList();
-    }
-
     private OperationResult createPendingVmOperation(CreateVmCommand command, String resourceName) {
+        if (command.operationType() != OperationType.CREATE_VM || command.resourceType() != ResourceType.VM) {
+            throw new IllegalArgumentException("only CREATE_VM operations for the VM resource type are currently supported");
+        }
         ResourceRequest resourceRequest = new ResourceRequest(resourceName, command.imageId(), command.flavorId(), command.networkId());
         var workflow = workflowConfigurationPort.activeWorkflowFor(OperationType.CREATE_VM);
         Operation operation = Operation.createVm(
             command.customerId(),
             command.providerId(),
+            command.contractId(),
             command.requestedPriority(),
             resourceRequest,
             workflow.steps().stream().map(step -> step.stepName()).toList()
@@ -124,11 +119,12 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
             }
             java.util.UUID customerId = operation.customerId();
             java.util.UUID providerId = operation.providerId();
+            java.util.UUID contractId = operation.contractId();
             ResourceRequest resourceRequest = operation.resourceRequest();
             operation = runParallelSteps(
                 operation,
                 OperationStepName.CHECK_CUSTOMER_QUOTA,
-                () -> quotaManagementPort.ensureQuotaAvailable(customerId, ResourceType.VM, resourceRequest),
+                () -> quotaManagementPort.ensureQuotaAvailable(contractId, customerId, ResourceType.VM, resourceRequest),
                 OperationStepName.CHECK_RESOURCE_ELIGIBILITY,
                 () -> resourceEligibilityPort.ensureEligible(customerId, providerId, ResourceType.VM, resourceRequest)
             );
@@ -164,7 +160,7 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
             );
             Operation quotaCommitOperation = operation;
             operation = runStep(operation, OperationStepName.COMMIT_QUOTA, () ->
-                quotaManagementPort.commitQuota(quotaCommitOperation.customerId(), quotaCommitOperation.resourceType(), quotaCommitOperation.resourceRequest())
+                quotaManagementPort.commitQuota(quotaCommitOperation.contractId(), quotaCommitOperation.customerId(), quotaCommitOperation.resourceType(), quotaCommitOperation.resourceRequest())
             );
             Operation billableOperation = operation;
             operation = runStep(operation, OperationStepName.REQUEST_BILLING, () -> billingPort.requestBilling(billableOperation));
@@ -353,7 +349,7 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
                 );
             }
             if (restoreQuota) {
-                quotaManagementPort.releaseQuota(rollingBack.customerId(), rollingBack.resourceType(), rollingBack.resourceRequest());
+                quotaManagementPort.releaseQuota(rollingBack.contractId(), rollingBack.customerId(), rollingBack.resourceType(), rollingBack.resourceRequest());
             }
             Operation rolledBack = operationRepositoryPort.save(rollingBack.rolledBack());
             operationEventPublisherPort.publishFailed(rolledBack);
@@ -395,6 +391,7 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
             operation.id(),
             operation.customerId(),
             operation.providerId(),
+            operation.contractId(),
             operation.type().name(),
             operation.resourceType().name(),
             operation.priority().name(),
