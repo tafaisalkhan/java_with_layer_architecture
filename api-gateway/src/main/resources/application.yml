@@ -20,8 +20,8 @@ spring:
           uri: ${PAYMENT_SERVICE_URL:http://localhost:8084}
           predicates: [Path=/api/payments/**]
           filters: [StripPrefix=1]
-        - id: product-service
-          uri: ${PRODUCT_SERVICE_URL:http://localhost:8085}
+        - id: contract-products
+          uri: ${CONTRACT_SERVICE_URL:http://localhost:8086}
           predicates: [Path=/api/products/**]
           filters: [StripPrefix=1]
         - id: contract-service

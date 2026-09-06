@@ -9,7 +9,7 @@ The `api-gateway` module is the only intended public API entry point. It listens
 | `/api/users/**` | user-service:8081 |
 | `/api/customers/**` | user-service:8081 |
 | `/api/payments/**` | payment-service:8084 |
-| `/api/products/**` | product-service:8085 |
+| `/api/products/**` | contract-service:8086 |
 | `/api/contracts/**` | contract-service:8086 |
 | `/api/invoices/**` | invoice-service:8087 |
 | `/api/providers/**` | provider-service:8088 |

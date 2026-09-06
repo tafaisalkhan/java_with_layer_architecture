@@ -11,3 +11,10 @@ ON DUPLICATE KEY UPDATE
     unit_amount = VALUES(unit_amount),
     currency = VALUES(currency),
     signup_credit_amount = VALUES(signup_credit_amount);
+INSERT INTO products (id, name, description, status)
+VALUES (UUID_TO_BIN('00000000-0000-0000-0000-000000000001'), 'Trial VM', 'Default VM product used by signup trial quota', 'ACTIVE')
+ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description), status = VALUES(status);
+
+INSERT INTO product_price_history (product_id, price_id, amount, currency, effective_from, effective_to)
+VALUES (UUID_TO_BIN('00000000-0000-0000-0000-000000000001'), UUID_TO_BIN('00000000-0000-0000-0000-000000000101'), 1.00, 'USD', '2026-01-01', NULL)
+ON DUPLICATE KEY UPDATE amount = VALUES(amount), currency = VALUES(currency), effective_from = VALUES(effective_from), effective_to = VALUES(effective_to);

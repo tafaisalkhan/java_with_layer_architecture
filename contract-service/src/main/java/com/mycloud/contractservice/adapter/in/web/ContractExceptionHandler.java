@@ -7,7 +7,6 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.client.RestClientResponseException;
 
 @RestControllerAdvice
 public class ContractExceptionHandler {
@@ -23,9 +22,4 @@ public class ContractExceptionHandler {
         return Map.of("message", exception.getMessage());
     }
 
-    @ExceptionHandler(RestClientResponseException.class)
-    @ResponseStatus(HttpStatus.BAD_GATEWAY)
-    public Map<String, String> handleUpstreamFailure(RestClientResponseException exception) {
-        return Map.of("message", "product-service request failed: " + exception.getStatusCode());
-    }
 }

@@ -37,9 +37,11 @@ public record Product(
     }
 
     public Product updatePrice(MoneyValue newPrice, LocalDate effectiveFrom) {
-        ProductPrice currentPrice = currentPrice();
-        if (effectiveFrom.isBefore(currentPrice.effectiveFrom())) {
-            throw new IllegalArgumentException("new price effective date must not be before current price");
+        ProductPrice latestPrice = priceHistory.stream()
+            .max(Comparator.comparing(ProductPrice::effectiveFrom))
+            .orElseThrow();
+        if (!effectiveFrom.isAfter(latestPrice.effectiveFrom())) {
+            throw new IllegalArgumentException("new price effective date must be after the latest price date");
         }
 
         List<ProductPrice> updatedHistory = new ArrayList<>();
@@ -51,12 +53,16 @@ public record Product(
     }
 
     public ProductPrice currentPrice() {
+        return priceOn(LocalDate.now());
+    }
+
+    public ProductPrice priceOn(LocalDate date) {
+        Objects.requireNonNull(date, "date must not be null");
         return priceHistory.stream()
-            .filter(ProductPrice::isCurrent)
-            .findFirst()
-            .orElseGet(() -> priceHistory.stream()
-                .max(Comparator.comparing(ProductPrice::effectiveFrom))
-                .orElseThrow());
+            .filter(price -> !date.isBefore(price.effectiveFrom()))
+            .filter(price -> price.effectiveTo() == null || date.isBefore(price.effectiveTo()))
+            .max(Comparator.comparing(ProductPrice::effectiveFrom))
+            .orElseThrow(() -> new IllegalStateException("no product price is effective on " + date));
     }
 
     private static void requireText(String value, String fieldName) {
