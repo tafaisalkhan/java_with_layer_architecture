@@ -1,0 +1,16 @@
+server:
+  port: ${AUTHORIZATION_SERVICE_PORT:8091}
+spring:
+  application:
+    name: authorization-service
+  datasource:
+    url: ${AUTHORIZATION_DB_URL:jdbc:mysql://localhost:3306/authorization_service}
+    username: ${AUTHORIZATION_DB_USERNAME:authorization_service}
+    password: ${AUTHORIZATION_DB_PASSWORD:authorization_service}
+  jpa:
+    hibernate:
+      ddl-auto: ${AUTHORIZATION_DB_DDL_AUTO:update}
+    open-in-view: false
+authorization:
+  # Local Keycloak realm user "admin". Override in every other environment.
+  bootstrap-admin-subject: ${AUTHORIZATION_BOOTSTRAP_ADMIN_SUBJECT:ede24cbc-3a79-40d2-b755-b25a1b003fc7}

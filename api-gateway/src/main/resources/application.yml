@@ -1,0 +1,90 @@
+server:
+  # Keycloak uses 8080 in local development.
+  port: ${API_GATEWAY_PORT:8090}
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: user-service
+          uri: ${USER_SERVICE_URL:http://localhost:8081}
+          predicates: [Path=/api/users/**]
+          filters: [StripPrefix=1]
+        - id: customer-service
+          uri: ${CUSTOMER_SERVICE_URL:http://localhost:8082}
+          predicates: [Path=/api/customers/**]
+          filters: [StripPrefix=1]
+        - id: payment-service
+          uri: ${PAYMENT_SERVICE_URL:http://localhost:8084}
+          predicates: [Path=/api/payments/**]
+          filters: [StripPrefix=1]
+        - id: product-service
+          uri: ${PRODUCT_SERVICE_URL:http://localhost:8085}
+          predicates: [Path=/api/products/**]
+          filters: [StripPrefix=1]
+        - id: contract-service
+          uri: ${CONTRACT_SERVICE_URL:http://localhost:8086}
+          predicates: [Path=/api/contracts/**]
+          filters: [StripPrefix=1]
+        - id: invoice-service
+          uri: ${INVOICE_SERVICE_URL:http://localhost:8087}
+          predicates: [Path=/api/invoices/**]
+          filters: [StripPrefix=1]
+        - id: provider-service
+          uri: ${PROVIDER_SERVICE_URL:http://localhost:8088}
+          predicates: [Path=/api/providers/**]
+          filters: [StripPrefix=1]
+        - id: orchestrator-service
+          uri: ${ORCHESTRATOR_SERVICE_URL:http://localhost:8089}
+          predicates: [Path=/api/operations/**]
+          filters: [StripPrefix=1]
+        - id: authorization-service
+          uri: ${AUTHORIZATION_SERVICE_URL:http://localhost:8091}
+          predicates: [Path=/api/authorization/**]
+          filters: [StripPrefix=1]
+
+gateway:
+  authorization-service-url: ${AUTHORIZATION_SERVICE_URL:http://localhost:8091}
+  # Development default only. Production must inject a random secret of at least 32 bytes.
+  security:
+    jwt:
+      mode: ${GATEWAY_JWT_MODE:issuer}
+      secret: ${GATEWAY_JWT_SECRET:local-development-jwt-secret-change-me-now}
+      issuer-uri: ${GATEWAY_JWT_ISSUER_URI:http://localhost:8080/realms/mycloud}
+      jwk-set-uri: ${GATEWAY_JWT_JWK_SET_URI:}
+  rate-limits:
+    users:
+      capacity: ${USER_RATE_LIMIT_CAPACITY:20}
+      refill-tokens-per-second: ${USER_RATE_LIMIT_REFILL:10}
+    customers:
+      capacity: ${CUSTOMER_RATE_LIMIT_CAPACITY:30}
+      refill-tokens-per-second: ${CUSTOMER_RATE_LIMIT_REFILL:15}
+    payments:
+      capacity: ${PAYMENT_RATE_LIMIT_CAPACITY:10}
+      refill-tokens-per-second: ${PAYMENT_RATE_LIMIT_REFILL:5}
+    products:
+      capacity: ${PRODUCT_RATE_LIMIT_CAPACITY:100}
+      refill-tokens-per-second: ${PRODUCT_RATE_LIMIT_REFILL:50}
+    contracts:
+      capacity: ${CONTRACT_RATE_LIMIT_CAPACITY:30}
+      refill-tokens-per-second: ${CONTRACT_RATE_LIMIT_REFILL:15}
+    invoices:
+      capacity: ${INVOICE_RATE_LIMIT_CAPACITY:30}
+      refill-tokens-per-second: ${INVOICE_RATE_LIMIT_REFILL:15}
+    providers:
+      capacity: ${PROVIDER_RATE_LIMIT_CAPACITY:20}
+      refill-tokens-per-second: ${PROVIDER_RATE_LIMIT_REFILL:10}
+    operations:
+      capacity: ${OPERATION_RATE_LIMIT_CAPACITY:20}
+      refill-tokens-per-second: ${OPERATION_RATE_LIMIT_REFILL:10}
+    authorization:
+      capacity: ${AUTHORIZATION_RATE_LIMIT_CAPACITY:20}
+      refill-tokens-per-second: ${AUTHORIZATION_RATE_LIMIT_REFILL:10}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

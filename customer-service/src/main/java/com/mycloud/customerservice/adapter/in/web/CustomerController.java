@@ -5,6 +5,7 @@ import com.mycloud.customerservice.application.port.in.CreateCustomerCommand;
 import com.mycloud.customerservice.application.port.in.CustomerResult;
 import com.mycloud.customerservice.application.port.in.usecase.CreateCustomerUseCase;
 import com.mycloud.customerservice.application.port.in.usecase.GetCustomerUseCase;
+import com.mycloud.customerservice.application.service.CustomerTenantAccessPolicy;
 import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.UUID;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -21,10 +23,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class CustomerController {
     private final CreateCustomerUseCase createCustomerUseCase;
     private final GetCustomerUseCase getCustomerUseCase;
+    private final CustomerTenantAccessPolicy tenantAccessPolicy;
 
-    public CustomerController(CreateCustomerUseCase createCustomerUseCase, GetCustomerUseCase getCustomerUseCase) {
+    public CustomerController(CreateCustomerUseCase createCustomerUseCase, GetCustomerUseCase getCustomerUseCase,
+                              CustomerTenantAccessPolicy tenantAccessPolicy) {
         this.createCustomerUseCase = createCustomerUseCase;
         this.getCustomerUseCase = getCustomerUseCase;
+        this.tenantAccessPolicy = tenantAccessPolicy;
     }
 
     @PostMapping
@@ -34,7 +39,12 @@ public class CustomerController {
     }
 
     @GetMapping("/{customerId}")
-    public CustomerResult getCustomer(@PathVariable("customerId") UUID customerId) {
+    public CustomerResult getCustomer(
+        @PathVariable("customerId") UUID customerId,
+        @RequestHeader(value = "X-Effective-Account-Type", required = false) String effectiveAccountType,
+        @RequestHeader(value = "X-Effective-Tenant-ID", required = false) String effectiveTenantId
+    ) {
+        tenantAccessPolicy.ensureCanReadCustomer(customerId, effectiveAccountType, effectiveTenantId);
         return getCustomerUseCase.getCustomer(new GetByIdQuery(customerId));
     }
 }
