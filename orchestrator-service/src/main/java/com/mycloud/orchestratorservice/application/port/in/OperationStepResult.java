@@ -9,6 +9,8 @@ public record OperationStepResult(
     Instant startedAt,
     Instant finishedAt,
     int attemptCount,
-    Instant nextRetryAt
+    Instant nextRetryAt,
+    Instant lastCheckedAt,
+    String providerStatus
 ) {
 }

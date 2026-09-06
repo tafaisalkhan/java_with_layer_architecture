@@ -158,4 +158,8 @@ public class OperationJpaEntity {
     public List<OperationStepJpaEmbeddable> getSteps() {
         return steps;
     }
+
+    public void markRunning() {
+        this.status = OperationStatus.RUNNING;
+    }
 }

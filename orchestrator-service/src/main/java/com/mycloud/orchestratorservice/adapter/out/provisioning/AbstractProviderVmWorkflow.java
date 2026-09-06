@@ -4,6 +4,7 @@ import com.mycloud.orchestratorservice.application.port.out.spi.dto.ProviderConf
 import com.mycloud.orchestratorservice.application.port.out.spi.dto.ProviderSession;
 import com.mycloud.orchestratorservice.application.port.out.spi.dto.ProvisionedResource;
 import java.util.Map;
+import com.mycloud.orchestratorservice.domain.ProvisioningStatus;
 
 import static com.mycloud.orchestratorservice.adapter.out.provisioning.ProvisioningMetadataKeys.MANAGEMENT_URL;
 import static com.mycloud.orchestratorservice.adapter.out.provisioning.ProvisioningMetadataKeys.PROVIDER_ID;
@@ -11,6 +12,19 @@ import static com.mycloud.orchestratorservice.adapter.out.provisioning.Provision
 import static com.mycloud.orchestratorservice.adapter.out.provisioning.ProvisioningMetadataKeys.RESOURCE_ID;
 
 public abstract class AbstractProviderVmWorkflow implements ProviderVmWorkflow {
+    private final MockProviderCredentialAuthenticator credentialAuthenticator;
+
+    protected AbstractProviderVmWorkflow(MockProviderCredentialAuthenticator credentialAuthenticator) {
+        this.credentialAuthenticator = credentialAuthenticator;
+    }
+
+    protected ProviderSession authenticate(ProviderConfiguration providerConfiguration, String userToken, String endpointUrl) {
+        return credentialAuthenticator.authenticate(providerConfiguration, userToken, endpointUrl);
+    }
+    @Override
+    public ProvisioningStatus getVmStatus(ProviderConfiguration providerConfiguration, ProviderSession session, String resourceId) {
+        return ProvisioningStatus.ACTIVE;
+    }
     @Override
     public ProvisionedResource collectVmMetadata(ProviderConfiguration providerConfiguration, ProviderSession session, String resourceId) {
         Map<String, String> metadata = resourceMetadata(providerConfiguration, session, resourceId);

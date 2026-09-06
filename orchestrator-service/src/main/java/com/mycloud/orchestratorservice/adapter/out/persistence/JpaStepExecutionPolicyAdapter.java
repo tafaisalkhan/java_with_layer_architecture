@@ -1,6 +1,6 @@
 package com.mycloud.orchestratorservice.adapter.out.persistence;
 
-import com.mycloud.orchestratorservice.adapter.out.persistence.repository.SpringDataOperationStepExecutionConfigRepository;
+import com.mycloud.orchestratorservice.adapter.out.persistence.repository.SpringDataStepConfigRepository;
 import com.mycloud.orchestratorservice.application.port.out.spi.StepExecutionPolicyPort;
 import com.mycloud.orchestratorservice.domain.OperationStepName;
 import com.mycloud.orchestratorservice.domain.StepExecutionPolicy;
@@ -9,22 +9,22 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public class JpaStepExecutionPolicyAdapter implements StepExecutionPolicyPort {
-    private final SpringDataOperationStepExecutionConfigRepository repository;
+    private final SpringDataStepConfigRepository repository;
 
-    public JpaStepExecutionPolicyAdapter(SpringDataOperationStepExecutionConfigRepository repository) {
+    public JpaStepExecutionPolicyAdapter(SpringDataStepConfigRepository repository) {
         this.repository = repository;
     }
 
     @Override
     public StepExecutionPolicy policyFor(OperationStepName stepName) {
-        return repository.findById(stepName)
+        return repository.findFirstByStepNameAndEnabledTrue(stepName)
             .map(entity -> new StepExecutionPolicy(
                 entity.getStepName(),
                 entity.isRetryEnabled(),
                 entity.getMaxAttempts(),
                 Duration.ofSeconds(entity.getRetryDelaySeconds()),
                 entity.isRequiredStep(),
-                entity.isRollbackOnFailure()
+                false
             ))
             .orElse(new StepExecutionPolicy(stepName, false, 1, Duration.ZERO, true, true));
     }

@@ -11,6 +11,7 @@ import com.mycloud.orchestratorservice.application.port.out.spi.BillingPort;
 import com.mycloud.orchestratorservice.application.port.out.spi.MonitoringPort;
 import com.mycloud.orchestratorservice.application.port.out.spi.OperationEventPublisherPort;
 import com.mycloud.orchestratorservice.application.port.out.spi.OperationRepositoryPort;
+import com.mycloud.orchestratorservice.application.port.out.spi.OperationWorkflowConfigurationPort;
 import com.mycloud.orchestratorservice.application.port.out.spi.ProviderConfigurationPort;
 import com.mycloud.orchestratorservice.application.port.out.spi.QuotaManagementPort;
 import com.mycloud.orchestratorservice.application.port.out.spi.ResourceEligibilityPort;
@@ -23,11 +24,14 @@ import com.mycloud.orchestratorservice.application.port.out.spi.dto.ProvisionedR
 import com.mycloud.orchestratorservice.domain.Operation;
 import com.mycloud.orchestratorservice.domain.OperationStepName;
 import com.mycloud.orchestratorservice.domain.OperationType;
+import com.mycloud.orchestratorservice.domain.RollbackMode;
 import com.mycloud.orchestratorservice.domain.ResourceType;
 import com.mycloud.orchestratorservice.domain.ResourceRequest;
+import com.mycloud.orchestratorservice.domain.ProvisioningStatus;
 import com.mycloud.orchestratorservice.domain.StepExecutionPolicy;
 import java.net.SocketTimeoutException;
 import java.time.Instant;
+import java.time.Duration;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.concurrent.CompletableFuture;
@@ -35,6 +39,7 @@ import java.util.concurrent.CompletionException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.beans.factory.annotation.Value;
 
 @Service
 @Validated
@@ -49,6 +54,9 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
     private final BillingPort billingPort;
     private final StepExecutionPolicyPort stepExecutionPolicyPort;
     private final OperationEventPublisherPort operationEventPublisherPort;
+    private final OperationWorkflowConfigurationPort workflowConfigurationPort;
+    private final Duration vmPollInterval;
+    private final Duration vmBuildTimeout;
 
     public OrchestratorApplicationService(
         OperationRepositoryPort operationRepositoryPort,
@@ -60,7 +68,10 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
         MonitoringPort monitoringPort,
         BillingPort billingPort,
         StepExecutionPolicyPort stepExecutionPolicyPort,
-        OperationEventPublisherPort operationEventPublisherPort
+        OperationEventPublisherPort operationEventPublisherPort,
+        OperationWorkflowConfigurationPort workflowConfigurationPort,
+        @Value("${app.provisioning.poll-interval-seconds:5}") long vmPollIntervalSeconds,
+        @Value("${app.provisioning.build-timeout-seconds:900}") long vmBuildTimeoutSeconds
     ) {
         this.operationRepositoryPort = operationRepositoryPort;
         this.quotaManagementPort = quotaManagementPort;
@@ -72,6 +83,9 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
         this.billingPort = billingPort;
         this.stepExecutionPolicyPort = stepExecutionPolicyPort;
         this.operationEventPublisherPort = operationEventPublisherPort;
+        this.workflowConfigurationPort = workflowConfigurationPort;
+        this.vmPollInterval = Duration.ofSeconds(vmPollIntervalSeconds);
+        this.vmBuildTimeout = Duration.ofSeconds(vmBuildTimeoutSeconds);
     }
 
     @Override
@@ -89,11 +103,13 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
 
     private OperationResult createPendingVmOperation(CreateVmCommand command, String resourceName) {
         ResourceRequest resourceRequest = new ResourceRequest(resourceName, command.imageId(), command.flavorId(), command.networkId());
+        var workflow = workflowConfigurationPort.activeWorkflowFor(OperationType.CREATE_VM);
         Operation operation = Operation.createVm(
             command.customerId(),
             command.providerId(),
             command.requestedPriority(),
-            resourceRequest
+            resourceRequest,
+            workflow.steps().stream().map(step -> step.stepName()).toList()
         );
         operation = operationRepositoryPort.save(operation);
         return toResult(operation);
@@ -134,6 +150,7 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
                 )
                 : new StepValue<>(operation, operation.provisionedResourceId());
             operation = operationRepositoryPort.save(resourceId.operation().withProvisionedResourceId(resourceId.value()));
+            operation = waitForVmActive(operation, provider.value(), session.value(), resourceId.value());
             operation = runStep(operation, OperationStepName.ASSIGN_PUBLIC_IP, () ->
                 resourceProvisioningPort.assignVmAccess(provider.value(), session.value(), resourceId.value())
             );
@@ -155,11 +172,38 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
             operationEventPublisherPort.publishSucceeded(operation);
         } catch (StepExecutionException exception) {
             handleStepFailure(exception);
+        } catch (PollingDeferredException ignored) {
+            // State and next poll time are persisted; the scheduler will resume this operation.
         } catch (RuntimeException exception) {
             Operation failed = operation.failStep(currentStep(operation), exception.getMessage(), Instant.now());
             failed = operationRepositoryPort.save(failed);
             operationEventPublisherPort.publishFailed(failed);
         }
+    }
+
+    private Operation waitForVmActive(Operation operation, ProviderConfiguration provider, ProviderSession session, String resourceId) {
+        Operation running = operationRepositoryPort.save(operation.startStep(OperationStepName.WAIT_FOR_VM_ACTIVE, Instant.now()));
+        Instant now = Instant.now();
+        Instant pollingStartedAt = running.steps().stream()
+            .filter(step -> step.name() == OperationStepName.WAIT_FOR_VM_ACTIVE)
+            .findFirst()
+            .map(step -> step.startedAt())
+            .orElse(now);
+        if (Duration.between(pollingStartedAt, now).compareTo(vmBuildTimeout) >= 0) {
+            throw new StepExecutionException(running, OperationStepName.WAIT_FOR_VM_ACTIVE,
+                "VM did not become active within " + vmBuildTimeout.toSeconds() + " seconds", false);
+        }
+        ProvisioningStatus status = resourceProvisioningPort.getVmStatus(provider, session, resourceId);
+        if (status == ProvisioningStatus.ACTIVE) {
+            return operationRepositoryPort.save(running.succeedStep(OperationStepName.WAIT_FOR_VM_ACTIVE, now, status.name()));
+        }
+        if (status == ProvisioningStatus.FAILED || status == ProvisioningStatus.DELETED) {
+            throw new StepExecutionException(running, OperationStepName.WAIT_FOR_VM_ACTIVE,
+                "provider reported VM status " + status, false);
+        }
+        operationRepositoryPort.save(running.waitForStepPoll(OperationStepName.WAIT_FOR_VM_ACTIVE,
+            now, now.plus(vmPollInterval), status.name()));
+        throw new PollingDeferredException();
     }
 
     @Override
@@ -170,6 +214,9 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
     }
 
     private Operation runStep(Operation operation, OperationStepName stepName, Runnable action) {
+        if (stepSucceeded(operation, stepName)) {
+            return operation;
+        }
         Operation running = operationRepositoryPort.save(operation.startStep(stepName, Instant.now()));
         try {
             action.run();
@@ -184,6 +231,9 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
     }
 
     private <T> StepValue<T> runValueStep(Operation operation, OperationStepName stepName, java.util.function.Supplier<T> action) {
+        if (stepSucceeded(operation, stepName)) {
+            return new StepValue<>(operation, action.get());
+        }
         Operation running = operationRepositoryPort.save(operation.startStep(stepName, Instant.now()));
         T value;
         try {
@@ -204,8 +254,10 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
         Operation running = operationRepositoryPort.save(
             operation.startStep(firstStepName, Instant.now()).startStep(secondStepName, Instant.now())
         );
-        CompletableFuture<Void> first = CompletableFuture.runAsync(firstAction);
-        CompletableFuture<Void> second = CompletableFuture.runAsync(secondAction);
+        CompletableFuture<Void> first = stepSucceeded(operation, firstStepName)
+            ? CompletableFuture.completedFuture(null) : CompletableFuture.runAsync(firstAction);
+        CompletableFuture<Void> second = stepSucceeded(operation, secondStepName)
+            ? CompletableFuture.completedFuture(null) : CompletableFuture.runAsync(secondAction);
         try {
             CompletableFuture.allOf(first, second).join();
         } catch (CompletionException ignored) {
@@ -231,12 +283,20 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
     }
 
     private Operation finishParallelStep(Operation operation, OperationStepName stepName, CompletableFuture<Void> future) {
+        if (stepSucceeded(operation, stepName)) {
+            return operation;
+        }
         try {
             future.join();
             return operationRepositoryPort.save(operation.succeedStep(stepName, Instant.now()));
         } catch (CompletionException exception) {
             throw new StepExecutionException(operation, stepName, exceptionMessage(exception), isRetryable(exception));
         }
+    }
+
+    private boolean stepSucceeded(Operation operation, OperationStepName stepName) {
+        return operation.steps().stream().anyMatch(step -> step.name() == stepName
+            && step.status() == com.mycloud.orchestratorservice.domain.OperationStepStatus.SUCCEEDED);
     }
 
     private void handleStepFailure(StepExecutionException exception) {
@@ -260,8 +320,15 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
             return;
         }
 
-        if (policy.rollbackOnFailure()) {
-            rollback(operation, exception, now);
+        var workflow = workflowConfigurationPort.activeWorkflowFor(operation.type());
+        if (workflow.rollbackMode() == RollbackMode.AUTO) {
+            rollback(operation, exception, now, workflow.quotaRollbackEnabled());
+            return;
+        }
+        if (workflow.rollbackMode() == RollbackMode.MANUAL) {
+            Operation waiting = operationRepositoryPort.save(operation.failStepOnly(
+                exception.stepName(), exception.getMessage(), now).rollbackRequired(exception.getMessage()));
+            operationEventPublisherPort.publishFailed(waiting);
             return;
         }
 
@@ -270,7 +337,7 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
         operationEventPublisherPort.publishFailed(failed);
     }
 
-    private void rollback(Operation operation, StepExecutionException exception, Instant now) {
+    private void rollback(Operation operation, StepExecutionException exception, Instant now, boolean restoreQuota) {
         Operation rollingBack = operationRepositoryPort.save(operation.startRollback(exception.getMessage()));
         try {
             if (rollingBack.provisionedResourceId() != null) {
@@ -285,14 +352,13 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
                     resourceProvisioningPort.rollbackVm(providerConfiguration, session, provisionedResourceId)
                 );
             }
-            Operation quotaOperation = rollingBack;
-            rollingBack = runStep(rollingBack, OperationStepName.RELEASE_QUOTA, () ->
-                quotaManagementPort.releaseQuota(quotaOperation.customerId(), quotaOperation.resourceType(), quotaOperation.resourceRequest())
-            );
+            if (restoreQuota) {
+                quotaManagementPort.releaseQuota(rollingBack.customerId(), rollingBack.resourceType(), rollingBack.resourceRequest());
+            }
             Operation rolledBack = operationRepositoryPort.save(rollingBack.rolledBack());
             operationEventPublisherPort.publishFailed(rolledBack);
         } catch (RuntimeException rollbackException) {
-            Operation failed = rollingBack.failStep(currentStep(rollingBack), exception.getMessage() + "; rollback failed: " + exceptionMessage(rollbackException), now);
+            Operation failed = rollingBack.rollbackFailed(exception.getMessage() + "; rollback failed: " + exceptionMessage(rollbackException));
             failed = operationRepositoryPort.save(failed);
             operationEventPublisherPort.publishFailed(failed);
         }
@@ -343,7 +409,9 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
                     step.startedAt(),
                     step.finishedAt(),
                     step.attemptCount(),
-                    step.nextRetryAt()
+                    step.nextRetryAt(),
+                    step.lastCheckedAt(),
+                    step.providerStatus()
                 ))
                 .toList()
         );
@@ -375,5 +443,8 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
         boolean retryable() {
             return retryable;
         }
+    }
+
+    private static class PollingDeferredException extends RuntimeException {
     }
 }

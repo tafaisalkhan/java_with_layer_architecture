@@ -31,7 +31,13 @@ public record Operation(
         steps = List.copyOf(steps);
     }
 
-    public static Operation createVm(UUID customerId, UUID providerId, OperationPriority priority, ResourceRequest request) {
+    public static Operation createVm(
+        UUID customerId,
+        UUID providerId,
+        OperationPriority priority,
+        ResourceRequest request,
+        List<OperationStepName> configuredSteps
+    ) {
         return new Operation(
             UUID.randomUUID(),
             customerId,
@@ -43,21 +49,7 @@ public record Operation(
             OperationStatus.PENDING,
             null,
             null,
-            List.of(
-                OperationStep.pending(OperationStepName.CHECK_CUSTOMER_QUOTA),
-                OperationStep.pending(OperationStepName.CHECK_RESOURCE_ELIGIBILITY),
-                OperationStep.pending(OperationStepName.CREATE_USER_TOKEN),
-                OperationStep.pending(OperationStepName.LOAD_PROVIDER_CONFIGURATION),
-                OperationStep.pending(OperationStepName.PROVIDER_LOGIN),
-                OperationStep.pending(OperationStepName.PROVISION_RESOURCE),
-                OperationStep.pending(OperationStepName.ASSIGN_PUBLIC_IP),
-                OperationStep.pending(OperationStepName.COLLECT_RESOURCE_METADATA),
-                OperationStep.pending(OperationStepName.REGISTER_MONITORING),
-                OperationStep.pending(OperationStepName.COMMIT_QUOTA),
-                OperationStep.pending(OperationStepName.REQUEST_BILLING),
-                OperationStep.pending(OperationStepName.ROLLBACK_RESOURCE),
-                OperationStep.pending(OperationStepName.RELEASE_QUOTA)
-            )
+            configuredSteps.stream().map(OperationStep::pending).toList()
         );
     }
 
@@ -71,6 +63,10 @@ public record Operation(
 
     public Operation succeedStep(OperationStepName stepName, Instant now) {
         return replaceStep(stepName, step -> step.succeed(now));
+    }
+
+    public Operation succeedStep(OperationStepName stepName, Instant now, String providerStatus) {
+        return replaceStep(stepName, step -> step.succeed(now, providerStatus));
     }
 
     public Operation failStep(OperationStepName stepName, String reason, Instant now) {
@@ -87,6 +83,12 @@ public record Operation(
         return new Operation(id, customerId, providerId, type, resourceType, priority, resourceRequest, OperationStatus.PENDING, provisionedResourceId, reason, retry.steps);
     }
 
+    public Operation waitForStepPoll(OperationStepName stepName, Instant now, Instant nextPollAt, String providerStatus) {
+        Operation waiting = replaceStep(stepName, step -> step.waitForPoll(now, nextPollAt, providerStatus));
+        return new Operation(id, customerId, providerId, type, resourceType, priority, resourceRequest,
+            OperationStatus.WAITING, provisionedResourceId, failureReason, waiting.steps);
+    }
+
     public Operation succeed(String resourceId) {
         return new Operation(id, customerId, providerId, type, resourceType, priority, resourceRequest, OperationStatus.SUCCEEDED, resourceId, null, steps);
     }
@@ -101,6 +103,16 @@ public record Operation(
 
     public Operation rolledBack() {
         return new Operation(id, customerId, providerId, type, resourceType, priority, resourceRequest, OperationStatus.ROLLED_BACK, provisionedResourceId, failureReason, steps);
+    }
+
+    public Operation rollbackRequired(String reason) {
+        return new Operation(id, customerId, providerId, type, resourceType, priority, resourceRequest,
+            OperationStatus.ROLLBACK_REQUIRED, provisionedResourceId, reason, steps);
+    }
+
+    public Operation rollbackFailed(String reason) {
+        return new Operation(id, customerId, providerId, type, resourceType, priority, resourceRequest,
+            OperationStatus.ROLLBACK_FAILED, provisionedResourceId, reason, steps);
     }
 
     private Operation replaceStep(OperationStepName stepName, java.util.function.Function<OperationStep, OperationStep> update) {

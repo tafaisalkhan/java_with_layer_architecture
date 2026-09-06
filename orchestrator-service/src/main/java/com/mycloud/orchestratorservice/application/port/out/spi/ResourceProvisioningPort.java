@@ -4,11 +4,14 @@ import com.mycloud.orchestratorservice.application.port.out.spi.dto.ProviderConf
 import com.mycloud.orchestratorservice.application.port.out.spi.dto.ProviderSession;
 import com.mycloud.orchestratorservice.application.port.out.spi.dto.ProvisionedResource;
 import com.mycloud.orchestratorservice.domain.ResourceRequest;
+import com.mycloud.orchestratorservice.domain.ProvisioningStatus;
 
 public interface ResourceProvisioningPort {
     ProviderSession login(ProviderConfiguration providerConfiguration, String userToken);
 
     String createVm(ProviderConfiguration providerConfiguration, ProviderSession session, ResourceRequest request);
+
+    ProvisioningStatus getVmStatus(ProviderConfiguration providerConfiguration, ProviderSession session, String resourceId);
 
     void assignVmAccess(ProviderConfiguration providerConfiguration, ProviderSession session, String resourceId);
 

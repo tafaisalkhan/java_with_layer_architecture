@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class JpaOperationPersistenceAdapter implements OperationRepositoryPort {
@@ -64,11 +65,14 @@ public class JpaOperationPersistenceAdapter implements OperationRepositoryPort {
     }
 
     @Override
-    public List<Operation> findNextPending(int limit) {
-        return springDataOperationRepository.findNextPending(org.springframework.data.domain.PageRequest.of(0, limit))
-            .stream()
-            .map(this::toDomain)
-            .toList();
+    @Transactional
+    public List<Operation> claimNextRunnable(int limit) {
+        List<OperationJpaEntity> claimed = springDataOperationRepository.findNextRunnableForUpdate(
+            org.springframework.data.domain.PageRequest.of(0, limit)
+        );
+        claimed.forEach(OperationJpaEntity::markRunning);
+        springDataOperationRepository.flush();
+        return claimed.stream().map(this::toDomain).toList();
     }
 
     private OperationStepJpaEmbeddable toStepEntity(OperationStep step) {
@@ -79,7 +83,9 @@ public class JpaOperationPersistenceAdapter implements OperationRepositoryPort {
             step.startedAt(),
             step.finishedAt(),
             step.attemptCount(),
-            step.nextRetryAt()
+            step.nextRetryAt(),
+            step.lastCheckedAt(),
+            step.providerStatus()
         );
     }
 
@@ -91,7 +97,9 @@ public class JpaOperationPersistenceAdapter implements OperationRepositoryPort {
             entity.getStartedAt(),
             entity.getFinishedAt(),
             entity.getAttemptCount(),
-            entity.getNextRetryAt()
+            entity.getNextRetryAt(),
+            entity.getLastCheckedAt(),
+            entity.getProviderStatus()
         );
     }
 }

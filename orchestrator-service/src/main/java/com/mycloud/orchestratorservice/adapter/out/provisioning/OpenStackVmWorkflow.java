@@ -5,6 +5,11 @@ import com.mycloud.orchestratorservice.application.port.out.spi.dto.ProviderSess
 import com.mycloud.orchestratorservice.domain.ResourceRequest;
 import java.util.Map;
 import java.util.UUID;
+import java.time.Instant;
+import java.time.Duration;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import com.mycloud.orchestratorservice.domain.ProvisioningStatus;
 import org.springframework.stereotype.Component;
 
 import static com.mycloud.orchestratorservice.adapter.out.provisioning.ProviderEndpointNames.HORIZON;
@@ -23,6 +28,10 @@ import static com.mycloud.orchestratorservice.adapter.out.provisioning.ResourceI
 
 @Component
 public class OpenStackVmWorkflow extends AbstractProviderVmWorkflow {
+    private final ConcurrentMap<String, Instant> submittedVms = new ConcurrentHashMap<>();
+    public OpenStackVmWorkflow(MockProviderCredentialAuthenticator credentialAuthenticator) {
+        super(credentialAuthenticator);
+    }
     @Override
     protected String providerType() {
         return OPENSTACK;
@@ -30,13 +39,23 @@ public class OpenStackVmWorkflow extends AbstractProviderVmWorkflow {
 
     @Override
     public ProviderSession login(ProviderConfiguration providerConfiguration, String userToken) {
-        return new ProviderSession(userToken, providerConfiguration.endpointUrl(KEYSTONE));
+        return authenticate(providerConfiguration, userToken, providerConfiguration.endpointUrl(KEYSTONE));
     }
 
     @Override
     public String createVm(ProviderConfiguration providerConfiguration, ProviderSession session, ResourceRequest request) {
         providerConfiguration.endpointUrl(NOVA);
-        return OPENSTACK_VM + UUID.randomUUID();
+        String resourceId = OPENSTACK_VM + UUID.randomUUID();
+        submittedVms.put(resourceId, Instant.now());
+        return resourceId;
+    }
+
+    @Override
+    public ProvisioningStatus getVmStatus(ProviderConfiguration providerConfiguration, ProviderSession session, String resourceId) {
+        providerConfiguration.endpointUrl(NOVA);
+        Instant submittedAt = submittedVms.get(resourceId);
+        return submittedAt != null && Duration.between(submittedAt, Instant.now()).toSeconds() < 10
+            ? ProvisioningStatus.BUILDING : ProvisioningStatus.ACTIVE;
     }
 
     @Override
@@ -47,6 +66,7 @@ public class OpenStackVmWorkflow extends AbstractProviderVmWorkflow {
     @Override
     public void rollbackVm(ProviderConfiguration providerConfiguration, ProviderSession session, String resourceId) {
         providerConfiguration.endpointUrl(NOVA);
+        submittedVms.remove(resourceId);
     }
 
     @Override

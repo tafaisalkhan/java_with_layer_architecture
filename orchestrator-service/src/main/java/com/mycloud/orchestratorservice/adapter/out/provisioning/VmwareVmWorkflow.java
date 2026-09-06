@@ -20,6 +20,9 @@ import static com.mycloud.orchestratorservice.adapter.out.provisioning.ResourceI
 
 @Component
 public class VmwareVmWorkflow extends AbstractProviderVmWorkflow {
+    public VmwareVmWorkflow(MockProviderCredentialAuthenticator credentialAuthenticator) {
+        super(credentialAuthenticator);
+    }
     @Override
     protected String providerType() {
         return VMWARE;
@@ -27,7 +30,7 @@ public class VmwareVmWorkflow extends AbstractProviderVmWorkflow {
 
     @Override
     public ProviderSession login(ProviderConfiguration providerConfiguration, String userToken) {
-        return new ProviderSession(userToken, providerConfiguration.endpointUrl(VCENTER));
+        return authenticate(providerConfiguration, userToken, providerConfiguration.endpointUrl(VCENTER));
     }
 
     @Override

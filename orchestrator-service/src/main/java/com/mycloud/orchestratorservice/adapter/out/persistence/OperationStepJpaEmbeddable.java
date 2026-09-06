@@ -33,6 +33,11 @@ public class OperationStepJpaEmbeddable {
     @Column(name = "next_retry_at")
     private Instant nextRetryAt;
 
+    @Column(name = "last_checked_at")
+    private Instant lastCheckedAt;
+    @Column(name = "provider_status", length = 32)
+    private String providerStatus;
+
     protected OperationStepJpaEmbeddable() {
     }
 
@@ -43,7 +48,9 @@ public class OperationStepJpaEmbeddable {
         Instant startedAt,
         Instant finishedAt,
         int attemptCount,
-        Instant nextRetryAt
+        Instant nextRetryAt,
+        Instant lastCheckedAt,
+        String providerStatus
     ) {
         this.name = name;
         this.status = status;
@@ -52,6 +59,8 @@ public class OperationStepJpaEmbeddable {
         this.finishedAt = finishedAt;
         this.attemptCount = attemptCount;
         this.nextRetryAt = nextRetryAt;
+        this.lastCheckedAt = lastCheckedAt;
+        this.providerStatus = providerStatus;
     }
 
     public OperationStepName getName() {
@@ -81,4 +90,6 @@ public class OperationStepJpaEmbeddable {
     public Instant getNextRetryAt() {
         return nextRetryAt;
     }
+    public Instant getLastCheckedAt() { return lastCheckedAt; }
+    public String getProviderStatus() { return providerStatus; }
 }

@@ -1,22 +1,38 @@
-INSERT INTO operation_step_execution_configs
-    (step_name, retry_enabled, max_attempts, retry_delay_seconds, required_step, rollback_on_failure)
+INSERT INTO operation_config
+    (id, operation_type, version, enabled, rollback_mode, quota_rollback_enabled)
+VALUES (1, 'CREATE_VM', 1, true, 'AUTO', true)
+ON DUPLICATE KEY UPDATE enabled = VALUES(enabled), rollback_mode = VALUES(rollback_mode),
+    quota_rollback_enabled = VALUES(quota_rollback_enabled);
+
+INSERT INTO step_config
+    (id, operation_config_id, step_name, sequence_number, retry_enabled,
+     max_attempts, retry_delay_seconds, required_step, enabled,
+     execution_type, poll_interval_seconds)
 VALUES
-    ('CHECK_CUSTOMER_QUOTA', true, 3, 30, true, false),
-    ('CHECK_RESOURCE_ELIGIBILITY', true, 3, 30, true, false),
-    ('CREATE_USER_TOKEN', true, 3, 30, true, false),
-    ('LOAD_PROVIDER_CONFIGURATION', true, 3, 30, true, false),
-    ('PROVIDER_LOGIN', true, 3, 30, true, false),
-    ('PROVISION_RESOURCE', true, 3, 30, true, true),
-    ('ASSIGN_PUBLIC_IP', true, 3, 30, true, true),
-    ('COLLECT_RESOURCE_METADATA', true, 3, 30, true, true),
-    ('REGISTER_MONITORING', false, 1, 0, false, false),
-    ('COMMIT_QUOTA', true, 3, 30, true, false),
-    ('REQUEST_BILLING', true, 3, 30, true, false),
-    ('ROLLBACK_RESOURCE', true, 3, 30, true, false),
-    ('RELEASE_QUOTA', true, 3, 30, true, false)
-ON DUPLICATE KEY UPDATE
-    retry_enabled = VALUES(retry_enabled),
-    max_attempts = VALUES(max_attempts),
-    retry_delay_seconds = VALUES(retry_delay_seconds),
-    required_step = VALUES(required_step),
-    rollback_on_failure = VALUES(rollback_on_failure);
+    (101, 1, 'CHECK_CUSTOMER_QUOTA',        10, true,  3, 30, true,  true, 'ACTION', NULL),
+    (102, 1, 'CHECK_RESOURCE_ELIGIBILITY',  10, true,  3, 30, true,  true, 'ACTION', NULL),
+    (103, 1, 'CREATE_USER_TOKEN',            20, true,  3, 30, true,  true, 'ACTION', NULL),
+    (104, 1, 'LOAD_PROVIDER_CONFIGURATION', 30, true,  3, 30, true,  true, 'ACTION', NULL),
+    (105, 1, 'PROVIDER_LOGIN',               40, true,  3, 30, true,  true, 'ACTION', NULL),
+    (106, 1, 'PROVISION_RESOURCE',           50, true,  3, 30, true,  true, 'ACTION', NULL),
+    (112, 1, 'WAIT_FOR_VM_ACTIVE',           60, false, 1,  0, true,  true, 'POLL',   5),
+    (107, 1, 'ASSIGN_PUBLIC_IP',             70, true,  3, 30, true,  true, 'ACTION', NULL),
+    (108, 1, 'COLLECT_RESOURCE_METADATA',    80, true,  3, 30, true,  true, 'ACTION', NULL),
+    (109, 1, 'REGISTER_MONITORING',          90, false, 1,  0, false, true, 'ACTION', NULL),
+    (110, 1, 'COMMIT_QUOTA',                100, true,  3, 30, true,  true, 'ACTION', NULL),
+    (111, 1, 'REQUEST_BILLING',             110, true,  3, 30, false, true, 'ACTION', NULL)
+ON DUPLICATE KEY UPDATE sequence_number = VALUES(sequence_number), retry_enabled = VALUES(retry_enabled),
+    max_attempts = VALUES(max_attempts), retry_delay_seconds = VALUES(retry_delay_seconds),
+    required_step = VALUES(required_step), enabled = VALUES(enabled), execution_type = VALUES(execution_type),
+    poll_interval_seconds = VALUES(poll_interval_seconds);
+
+-- Every dependency must succeed before its target step is ready.
+-- Ready steps having the same dependency set and sequence can execute in parallel.
+INSERT INTO step_dependency (id, step_config_id, depends_on_step_config_id)
+VALUES
+    (1001, 103, 101), (1002, 103, 102), (1003, 104, 103),
+    (1004, 105, 104), (1005, 106, 105), (1006, 112, 106),
+    (1007, 107, 112), (1008, 108, 107), (1009, 109, 108), (1011, 110, 109),
+    (1010, 111, 110)
+ON DUPLICATE KEY UPDATE step_config_id = VALUES(step_config_id),
+    depends_on_step_config_id = VALUES(depends_on_step_config_id);

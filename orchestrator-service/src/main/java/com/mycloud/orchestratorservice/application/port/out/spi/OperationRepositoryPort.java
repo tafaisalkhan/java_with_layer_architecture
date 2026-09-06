@@ -10,5 +10,10 @@ public interface OperationRepositoryPort {
 
     Optional<Operation> findById(UUID operationId);
 
-    List<Operation> findNextPending(int limit);
+    /**
+     * Atomically locks and transitions the next eligible operations to RUNNING.
+     * This is the scheduler's ownership boundary and prevents two workers or
+     * service instances from executing the same operation concurrently.
+     */
+    List<Operation> claimNextRunnable(int limit);
 }

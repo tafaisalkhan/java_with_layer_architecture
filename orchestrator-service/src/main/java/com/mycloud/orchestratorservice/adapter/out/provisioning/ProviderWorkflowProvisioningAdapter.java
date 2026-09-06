@@ -5,6 +5,7 @@ import com.mycloud.orchestratorservice.application.port.out.spi.dto.ProviderConf
 import com.mycloud.orchestratorservice.application.port.out.spi.dto.ProviderSession;
 import com.mycloud.orchestratorservice.application.port.out.spi.dto.ProvisionedResource;
 import com.mycloud.orchestratorservice.domain.ResourceRequest;
+import com.mycloud.orchestratorservice.domain.ProvisioningStatus;
 import java.util.List;
 import org.springframework.stereotype.Component;
 
@@ -24,6 +25,11 @@ public class ProviderWorkflowProvisioningAdapter implements ResourceProvisioning
     @Override
     public String createVm(ProviderConfiguration providerConfiguration, ProviderSession session, ResourceRequest request) {
         return workflowFor(providerConfiguration).createVm(providerConfiguration, session, request);
+    }
+
+    @Override
+    public ProvisioningStatus getVmStatus(ProviderConfiguration providerConfiguration, ProviderSession session, String resourceId) {
+        return workflowFor(providerConfiguration).getVmStatus(providerConfiguration, session, resourceId);
     }
 
     @Override

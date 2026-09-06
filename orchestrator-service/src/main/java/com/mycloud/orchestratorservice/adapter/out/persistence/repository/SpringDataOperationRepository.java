@@ -6,16 +6,21 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 
 public interface SpringDataOperationRepository extends JpaRepository<OperationJpaEntity, UUID> {
     @Override
     @EntityGraph(attributePaths = "steps")
     java.util.Optional<OperationJpaEntity> findById(UUID operationId);
 
-    @EntityGraph(attributePaths = "steps")
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
         select operation from OperationJpaEntity operation
-        where operation.status = com.mycloud.orchestratorservice.domain.OperationStatus.PENDING
+        where operation.status in (
+            com.mycloud.orchestratorservice.domain.OperationStatus.PENDING,
+            com.mycloud.orchestratorservice.domain.OperationStatus.WAITING
+        )
         and not exists (
             select retryStep from operation.steps retryStep
             where retryStep.nextRetryAt is not null
@@ -29,5 +34,5 @@ public interface SpringDataOperationRepository extends JpaRepository<OperationJp
             else 4
         end
         """)
-    java.util.List<OperationJpaEntity> findNextPending(Pageable pageable);
+    java.util.List<OperationJpaEntity> findNextRunnableForUpdate(Pageable pageable);
 }

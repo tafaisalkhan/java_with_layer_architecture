@@ -23,6 +23,9 @@ import static com.mycloud.orchestratorservice.adapter.out.provisioning.ResourceI
 
 @Component
 public class HuaweiVmWorkflow extends AbstractProviderVmWorkflow {
+    public HuaweiVmWorkflow(MockProviderCredentialAuthenticator credentialAuthenticator) {
+        super(credentialAuthenticator);
+    }
     @Override
     protected String providerType() {
         return HUAWEI;
@@ -30,7 +33,7 @@ public class HuaweiVmWorkflow extends AbstractProviderVmWorkflow {
 
     @Override
     public ProviderSession login(ProviderConfiguration providerConfiguration, String userToken) {
-        return new ProviderSession(userToken, providerConfiguration.endpointUrl(IAM));
+        return authenticate(providerConfiguration, userToken, providerConfiguration.endpointUrl(IAM));
     }
 
     @Override
