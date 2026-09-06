@@ -29,11 +29,11 @@ import static com.mycloud.orchestratorservice.adapter.out.provisioning.ResourceI
 @Component
 public class OpenStackVmWorkflow extends AbstractProviderVmWorkflow {
     private final ConcurrentMap<String, Instant> submittedVms = new ConcurrentHashMap<>();
-    public OpenStackVmWorkflow(MockProviderCredentialAuthenticator credentialAuthenticator) {
-        super(credentialAuthenticator);
+    public OpenStackVmWorkflow(ProviderAuthenticationService authenticationService) {
+        super(authenticationService);
     }
     @Override
-    protected String providerType() {
+    public String providerType() {
         return OPENSTACK;
     }
 

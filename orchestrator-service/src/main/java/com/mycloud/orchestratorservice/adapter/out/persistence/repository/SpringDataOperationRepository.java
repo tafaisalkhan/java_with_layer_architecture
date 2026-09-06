@@ -17,10 +17,7 @@ public interface SpringDataOperationRepository extends JpaRepository<OperationJp
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
         select operation from OperationJpaEntity operation
-        where operation.status in (
-            com.mycloud.orchestratorservice.domain.OperationStatus.PENDING,
-            com.mycloud.orchestratorservice.domain.OperationStatus.WAITING
-        )
+        where operation.status = com.mycloud.orchestratorservice.domain.OperationStatus.PENDING
         and not exists (
             select retryStep from operation.steps retryStep
             where retryStep.nextRetryAt is not null
@@ -34,5 +31,24 @@ public interface SpringDataOperationRepository extends JpaRepository<OperationJp
             else 4
         end
         """)
-    java.util.List<OperationJpaEntity> findNextRunnableForUpdate(Pageable pageable);
+    java.util.List<OperationJpaEntity> findNextPendingForUpdate(Pageable pageable);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        select operation from OperationJpaEntity operation
+        where operation.status = com.mycloud.orchestratorservice.domain.OperationStatus.WAITING
+        and not exists (
+            select waitingStep from operation.steps waitingStep
+            where waitingStep.nextRetryAt is not null
+            and waitingStep.nextRetryAt > current_timestamp
+        )
+        order by case operation.priority
+            when com.mycloud.orchestratorservice.domain.OperationPriority.CRITICAL then 0
+            when com.mycloud.orchestratorservice.domain.OperationPriority.HIGH then 1
+            when com.mycloud.orchestratorservice.domain.OperationPriority.NORMAL then 2
+            when com.mycloud.orchestratorservice.domain.OperationPriority.LOW then 3
+            else 4
+        end
+        """)
+    java.util.List<OperationJpaEntity> findWaitingReadyForPollForUpdate(Pageable pageable);
 }

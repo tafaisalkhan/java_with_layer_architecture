@@ -15,5 +15,7 @@ public interface OperationRepositoryPort {
      * This is the scheduler's ownership boundary and prevents two workers or
      * service instances from executing the same operation concurrently.
      */
-    List<Operation> claimNextRunnable(int limit);
+    List<Operation> claimNextPending(int limit);
+
+    List<Operation> claimWaitingReadyForPoll(int limit);
 }

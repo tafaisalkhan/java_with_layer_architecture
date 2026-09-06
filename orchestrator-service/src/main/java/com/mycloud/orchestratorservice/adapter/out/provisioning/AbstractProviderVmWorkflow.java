@@ -12,14 +12,14 @@ import static com.mycloud.orchestratorservice.adapter.out.provisioning.Provision
 import static com.mycloud.orchestratorservice.adapter.out.provisioning.ProvisioningMetadataKeys.RESOURCE_ID;
 
 public abstract class AbstractProviderVmWorkflow implements ProviderVmWorkflow {
-    private final MockProviderCredentialAuthenticator credentialAuthenticator;
+    private final ProviderAuthenticationService authenticationService;
 
-    protected AbstractProviderVmWorkflow(MockProviderCredentialAuthenticator credentialAuthenticator) {
-        this.credentialAuthenticator = credentialAuthenticator;
+    protected AbstractProviderVmWorkflow(ProviderAuthenticationService authenticationService) {
+        this.authenticationService = authenticationService;
     }
 
     protected ProviderSession authenticate(ProviderConfiguration providerConfiguration, String userToken, String endpointUrl) {
-        return credentialAuthenticator.authenticate(providerConfiguration, userToken, endpointUrl);
+        return authenticationService.authenticate(providerConfiguration, userToken, endpointUrl);
     }
     @Override
     public ProvisioningStatus getVmStatus(ProviderConfiguration providerConfiguration, ProviderSession session, String resourceId) {
@@ -37,11 +37,7 @@ public abstract class AbstractProviderVmWorkflow implements ProviderVmWorkflow {
     }
 
     @Override
-    public boolean supports(String providerType) {
-        return providerType().equalsIgnoreCase(providerType);
-    }
-
-    protected abstract String providerType();
+    public abstract String providerType();
 
     @Override
     public void assignVmAccess(ProviderConfiguration providerConfiguration, ProviderSession session, String resourceId) {

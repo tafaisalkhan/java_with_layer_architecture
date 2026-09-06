@@ -7,7 +7,7 @@ import com.mycloud.orchestratorservice.domain.ResourceRequest;
 import com.mycloud.orchestratorservice.domain.ProvisioningStatus;
 
 public interface ProviderVmWorkflow {
-    boolean supports(String providerType);
+    String providerType();
 
     ProviderSession login(ProviderConfiguration providerConfiguration, String userToken);
 

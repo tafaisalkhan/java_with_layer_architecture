@@ -66,10 +66,23 @@ public class JpaOperationPersistenceAdapter implements OperationRepositoryPort {
 
     @Override
     @Transactional
-    public List<Operation> claimNextRunnable(int limit) {
-        List<OperationJpaEntity> claimed = springDataOperationRepository.findNextRunnableForUpdate(
+    public List<Operation> claimNextPending(int limit) {
+        List<OperationJpaEntity> claimed = springDataOperationRepository.findNextPendingForUpdate(
             org.springframework.data.domain.PageRequest.of(0, limit)
         );
+        return markClaimedAndMap(claimed);
+    }
+
+    @Override
+    @Transactional
+    public List<Operation> claimWaitingReadyForPoll(int limit) {
+        List<OperationJpaEntity> claimed = springDataOperationRepository.findWaitingReadyForPollForUpdate(
+            org.springframework.data.domain.PageRequest.of(0, limit)
+        );
+        return markClaimedAndMap(claimed);
+    }
+
+    private List<Operation> markClaimedAndMap(List<OperationJpaEntity> claimed) {
         claimed.forEach(OperationJpaEntity::markRunning);
         springDataOperationRepository.flush();
         return claimed.stream().map(this::toDomain).toList();

@@ -6,15 +6,25 @@ import com.mycloud.orchestratorservice.application.port.out.spi.dto.ProviderSess
 import com.mycloud.orchestratorservice.application.port.out.spi.dto.ProvisionedResource;
 import com.mycloud.orchestratorservice.domain.ResourceRequest;
 import com.mycloud.orchestratorservice.domain.ProvisioningStatus;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import org.springframework.stereotype.Component;
 
 @Component
 public class ProviderWorkflowProvisioningAdapter implements ResourceProvisioningPort {
-    private final List<ProviderVmWorkflow> workflows;
+    private final Map<String, ProviderVmWorkflow> workflows;
 
     public ProviderWorkflowProvisioningAdapter(List<ProviderVmWorkflow> workflows) {
-        this.workflows = workflows;
+        Map<String, ProviderVmWorkflow> indexed = new HashMap<>();
+        for (ProviderVmWorkflow workflow : workflows) {
+            String providerType = normalize(workflow.providerType());
+            if (indexed.putIfAbsent(providerType, workflow) != null) {
+                throw new IllegalStateException("multiple VM workflows configured for: " + providerType);
+            }
+        }
+        this.workflows = Map.copyOf(indexed);
     }
 
     @Override
@@ -48,9 +58,17 @@ public class ProviderWorkflowProvisioningAdapter implements ResourceProvisioning
     }
 
     private ProviderVmWorkflow workflowFor(ProviderConfiguration providerConfiguration) {
-        return workflows.stream()
-            .filter(workflow -> workflow.supports(providerConfiguration.type()))
-            .findFirst()
-            .orElseThrow(() -> new IllegalArgumentException("unsupported provider type: " + providerConfiguration.type()));
+        ProviderVmWorkflow workflow = workflows.get(normalize(providerConfiguration.type()));
+        if (workflow == null) {
+            throw new IllegalArgumentException("unsupported provider type: " + providerConfiguration.type());
+        }
+        return workflow;
+    }
+
+    private static String normalize(String providerType) {
+        if (providerType == null || providerType.isBlank()) {
+            throw new IllegalArgumentException("provider type must not be blank");
+        }
+        return providerType.trim().toUpperCase(Locale.ROOT);
     }
 }

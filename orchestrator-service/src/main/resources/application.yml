@@ -32,9 +32,14 @@ app:
       operations-succeeded: operations.succeeded
       operations-failed: operations.failed
   scheduler:
-    fixed-delay-ms: ${OPERATION_SCHEDULER_FIXED_DELAY_MS:5000}
-    batch-size: ${OPERATION_SCHEDULER_BATCH_SIZE:10}
-    worker-threads: ${OPERATION_SCHEDULER_WORKER_THREADS:10}
+    pending:
+      fixed-delay-ms: ${PENDING_OPERATION_SCHEDULER_DELAY_MS:5000}
+      batch-size: ${PENDING_OPERATION_BATCH_SIZE:10}
+      worker-threads: ${PROVISIONING_WORKER_THREADS:10}
+    polling:
+      fixed-delay-ms: ${WAITING_OPERATION_SCHEDULER_DELAY_MS:2000}
+      batch-size: ${WAITING_OPERATION_BATCH_SIZE:50}
+      worker-threads: ${POLLING_WORKER_THREADS:20}
   provisioning:
     poll-interval-seconds: ${VM_POLL_INTERVAL_SECONDS:20}
     build-timeout-seconds: ${VM_BUILD_TIMEOUT_SECONDS:900}
@@ -47,12 +52,6 @@ app:
     refresh-before-expiry-seconds: ${HUAWEI_TOKEN_REFRESH_WINDOW_SECONDS:600}
     refresh-cron: ${HUAWEI_TOKEN_REFRESH_CRON:0 0 * * * *}
   mock-provider-credentials:
-    openstack:
-      username: ${MOCK_OPENSTACK_USERNAME:openstack-admin}
-      password: ${MOCK_OPENSTACK_PASSWORD:openstack-demo-secret}
     vmware:
       username: ${MOCK_VMWARE_USERNAME:administrator@vsphere.local}
       password: ${MOCK_VMWARE_PASSWORD:vmware-demo-secret}
-    huawei:
-      username: ${MOCK_HUAWEI_USERNAME:huawei-admin}
-      password: ${MOCK_HUAWEI_PASSWORD:huawei-demo-secret}
