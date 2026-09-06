@@ -1,5 +1,6 @@
 package com.mycloud.orchestratorservice.adapter.in.web;
 
+import com.mycloud.orchestratorservice.application.service.ProvisioningAccessDeniedException;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import org.springframework.http.HttpStatus;
@@ -11,6 +12,12 @@ import org.springframework.web.client.RestClientResponseException;
 
 @RestControllerAdvice
 public class OperationExceptionHandler {
+    @ExceptionHandler(ProvisioningAccessDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public Map<String, String> handleForbidden(ProvisioningAccessDeniedException exception) {
+        return Map.of("message", exception.getMessage());
+    }
+
     @ExceptionHandler(NoSuchElementException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Map<String, String> handleNotFound(NoSuchElementException exception) {
