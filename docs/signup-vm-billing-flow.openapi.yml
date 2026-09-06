@@ -25,6 +25,8 @@ tags:
 paths:
   /customers:
     post:
+      servers:
+        - url: http://localhost:8082
       tags: [Customer, Test Flow]
       summary: Create customer after signup
       description: Creates the customer and publishes CustomerCreatedEvent. contract-service assigns the default TRIAL contract and grants signup credit.
@@ -47,6 +49,8 @@ paths:
                 $ref: '#/components/schemas/CustomerResult'
   /contracts/customers/{customerId}/active:
     get:
+      servers:
+        - url: http://localhost:8086
       tags: [Contract, Test Flow]
       summary: Get default active contract
       parameters:
@@ -60,6 +64,8 @@ paths:
                 $ref: '#/components/schemas/ContractResult'
   /contracts/customers/{customerId}/credits:
     get:
+      servers:
+        - url: http://localhost:8086
       tags: [Credit, Test Flow]
       summary: Get customer credit balance
       parameters:
@@ -73,6 +79,8 @@ paths:
                 $ref: '#/components/schemas/CustomerCreditBalanceResult'
   /contracts/credits:
     post:
+      servers:
+        - url: http://localhost:8086
       tags: [Credit]
       summary: Add customer credit
       description: Adds signup, affiliate, free, or adjustment credit.
@@ -97,6 +105,8 @@ paths:
                 $ref: '#/components/schemas/CustomerCreditResult'
   /providers/{providerId}/allowed-customers/{customerId}:
     post:
+      servers:
+        - url: http://localhost:8088
       tags: [Provider, Test Flow]
       summary: Allow customer to use seeded provider
       description: Run this after creating the customer and before creating the VM operation.
@@ -114,6 +124,8 @@ paths:
           description: Provider updated
   /operations/create-vm:
     post:
+      servers:
+        - url: http://localhost:8089
       tags: [Operation, Test Flow]
       summary: Submit VM provisioning operation
       description: Saves a PENDING operation immediately. Scheduler later reserves quota, provisions VM, commits quota, and records billing.
@@ -140,6 +152,8 @@ paths:
                 $ref: '#/components/schemas/OperationResult'
   /operations/{operationId}:
     get:
+      servers:
+        - url: http://localhost:8089
       tags: [Operation, Test Flow]
       summary: Poll operation status
       parameters:
@@ -158,6 +172,8 @@ paths:
                 $ref: '#/components/schemas/OperationResult'
   /invoices/customers/{customerId}/charges:
     get:
+      servers:
+        - url: http://localhost:8087
       tags: [Billing, Test Flow]
       summary: Get customer VM billing charges
       description: invoice-service records these rows after OperationSucceededEvent. Default VM charge is BILLING_VM_CHARGE_AMOUNT, currently 1.00 USD.

@@ -3,10 +3,16 @@ package com.mycloud.orchestratorservice.adapter.out.persistence.repository;
 import com.mycloud.orchestratorservice.adapter.out.persistence.OperationJpaEntity;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 public interface SpringDataOperationRepository extends JpaRepository<OperationJpaEntity, UUID> {
+    @Override
+    @EntityGraph(attributePaths = "steps")
+    java.util.Optional<OperationJpaEntity> findById(UUID operationId);
+
+    @EntityGraph(attributePaths = "steps")
     @Query("""
         select operation from OperationJpaEntity operation
         where operation.status = com.mycloud.orchestratorservice.domain.OperationStatus.PENDING
