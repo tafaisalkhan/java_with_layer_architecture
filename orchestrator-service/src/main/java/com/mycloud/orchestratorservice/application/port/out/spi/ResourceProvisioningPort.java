@@ -7,7 +7,7 @@ import com.mycloud.orchestratorservice.domain.ResourceRequest;
 import com.mycloud.orchestratorservice.domain.ProvisioningStatus;
 
 public interface ResourceProvisioningPort {
-    ProviderSession login(ProviderConfiguration providerConfiguration, String userToken);
+    ProviderSession createScopedSession(ProviderConfiguration providerConfiguration, String unscopedToken);
 
     String createVm(ProviderConfiguration providerConfiguration, ProviderSession session, ResourceRequest request);
 

@@ -9,7 +9,7 @@ import com.mycloud.orchestratorservice.domain.ProvisioningStatus;
 public interface ProviderVmWorkflow {
     String providerType();
 
-    ProviderSession login(ProviderConfiguration providerConfiguration, String userToken);
+    ProviderSession createScopedSession(ProviderConfiguration providerConfiguration, String unscopedToken);
 
     String createVm(ProviderConfiguration providerConfiguration, ProviderSession session, ResourceRequest request);
 

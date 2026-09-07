@@ -11,7 +11,7 @@ public class DefaultUserTokenAdapter implements UserTokenPort {
     private final ConcurrentMap<UserProject, String> tokens = new ConcurrentHashMap<>();
 
     @Override
-    public String createToken(UUID customerId, UUID providerId) {
+    public String createUnscopedToken(UUID customerId, UUID providerId) {
         if (customerId == null || providerId == null) {
             throw new IllegalArgumentException("customerId and providerId are required to create a user token");
         }

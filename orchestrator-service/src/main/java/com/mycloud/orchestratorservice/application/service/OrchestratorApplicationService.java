@@ -128,30 +128,23 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
                 OperationStepName.CHECK_RESOURCE_ELIGIBILITY,
                 () -> resourceEligibilityPort.ensureEligible(customerId, providerId, ResourceType.VM, resourceRequest)
             );
-            StepValue<String> token = runValueStep(operation, OperationStepName.CREATE_USER_TOKEN, () ->
-                userTokenPort.createToken(customerId, providerId)
-            );
-            operation = token.operation();
             StepValue<ProviderConfiguration> provider = runValueStep(operation, OperationStepName.LOAD_PROVIDER_CONFIGURATION, () ->
                 providerConfigurationPort.getAllowedProvider(customerId, providerId)
             );
             operation = provider.operation();
-            StepValue<ProviderSession> session = runValueStep(operation, OperationStepName.PROVIDER_LOGIN, () ->
-                resourceProvisioningPort.login(provider.value(), token.value())
-            );
-            operation = session.operation();
+            ProviderSession session = providerSession(customerId, providerId, provider.value());
             StepValue<String> resourceId = operation.provisionedResourceId() == null
                 ? runValueStep(operation, OperationStepName.PROVISION_RESOURCE, () ->
-                    resourceProvisioningPort.createVm(provider.value(), session.value(), resourceRequest)
+                    resourceProvisioningPort.createVm(provider.value(), session, resourceRequest)
                 )
                 : new StepValue<>(operation, operation.provisionedResourceId());
             operation = operationRepositoryPort.save(resourceId.operation().withProvisionedResourceId(resourceId.value()));
-            operation = waitForVmActive(operation, provider.value(), session.value(), resourceId.value());
+            operation = waitForVmActive(operation, provider.value(), session, resourceId.value());
             operation = runStep(operation, OperationStepName.ASSIGN_PUBLIC_IP, () ->
-                resourceProvisioningPort.assignVmAccess(provider.value(), session.value(), resourceId.value())
+                resourceProvisioningPort.assignVmAccess(provider.value(), session, resourceId.value())
             );
             StepValue<ProvisionedResource> provisionedResource = runValueStep(operation, OperationStepName.COLLECT_RESOURCE_METADATA, () ->
-                resourceProvisioningPort.collectVmMetadata(provider.value(), session.value(), resourceId.value())
+                resourceProvisioningPort.collectVmMetadata(provider.value(), session, resourceId.value())
             );
             operation = provisionedResource.operation().succeed(provisionedResource.value().resourceId());
             Operation monitorableOperation = operation;
@@ -341,8 +334,9 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
                     rollingBack.customerId(),
                     rollingBack.providerId()
             );
-            String token = userTokenPort.createToken(rollingBack.customerId(), rollingBack.providerId());
-            ProviderSession session = resourceProvisioningPort.login(providerConfiguration, token);
+            ProviderSession session = providerSession(
+                rollingBack.customerId(), rollingBack.providerId(), providerConfiguration
+            );
                 String provisionedResourceId = rollingBack.provisionedResourceId();
                 rollingBack = runStep(rollingBack, OperationStepName.ROLLBACK_RESOURCE, () ->
                     resourceProvisioningPort.rollbackVm(providerConfiguration, session, provisionedResourceId)
@@ -369,6 +363,21 @@ public class OrchestratorApplicationService implements CreateVmOperationUseCase,
             current = current.getCause();
         }
         return false;
+    }
+
+    /**
+     * Runtime authentication boundary. Authentication is deliberately not an
+     * operation step: every execution or polling resume asks this function for
+     * a valid provider-scoped session. The adapters may reuse a non-expiring
+     * session or refresh an expired one.
+     */
+    private ProviderSession providerSession(
+        java.util.UUID customerId,
+        java.util.UUID providerId,
+        ProviderConfiguration providerConfiguration
+    ) {
+        String unscopedToken = userTokenPort.createUnscopedToken(customerId, providerId);
+        return resourceProvisioningPort.createScopedSession(providerConfiguration, unscopedToken);
     }
 
     private String exceptionMessage(Throwable exception) {

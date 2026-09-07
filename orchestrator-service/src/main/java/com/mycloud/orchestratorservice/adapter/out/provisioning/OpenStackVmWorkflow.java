@@ -38,7 +38,7 @@ public class OpenStackVmWorkflow extends AbstractProviderVmWorkflow {
     }
 
     @Override
-    public ProviderSession login(ProviderConfiguration providerConfiguration, String userToken) {
+    public ProviderSession createScopedSession(ProviderConfiguration providerConfiguration, String userToken) {
         return authenticate(providerConfiguration, userToken, providerConfiguration.endpointUrl(KEYSTONE));
     }
 

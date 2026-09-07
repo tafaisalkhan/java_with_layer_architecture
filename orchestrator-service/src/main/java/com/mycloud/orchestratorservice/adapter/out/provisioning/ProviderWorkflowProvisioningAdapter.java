@@ -28,8 +28,8 @@ public class ProviderWorkflowProvisioningAdapter implements ResourceProvisioning
     }
 
     @Override
-    public ProviderSession login(ProviderConfiguration providerConfiguration, String userToken) {
-        return workflowFor(providerConfiguration).login(providerConfiguration, userToken);
+    public ProviderSession createScopedSession(ProviderConfiguration providerConfiguration, String userToken) {
+        return workflowFor(providerConfiguration).createScopedSession(providerConfiguration, userToken);
     }
 
     @Override

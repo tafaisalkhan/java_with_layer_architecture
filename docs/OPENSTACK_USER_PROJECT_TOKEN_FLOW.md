@@ -16,24 +16,27 @@ In the current domain model, `customerId` identifies the requesting user/custome
 ## Current Request Flow
 
 1. A VM operation contains a `customerId` and `providerId`.
-2. `OrchestratorApplicationService` calls `UserTokenPort.createToken(customerId, providerId)` during the `CREATE_USER_TOKEN` step.
-3. `DefaultUserTokenAdapter` creates an opaque token for that exact `(customerId, providerId)` pair.
-4. Calls for the same pair reuse the token so a deferred or retried operation can continue in the same user/project scope.
-5. `OpenStackVmWorkflow` passes the token to `ProviderAuthenticationService`.
-6. The service selects `OpenStackAuthenticationStrategy`, which creates and caches a session using `(providerId, userProjectToken)` as its cache key.
-7. Two users targeting the same OpenStack provider therefore receive different provider sessions.
+2. `LOAD_PROVIDER_CONFIGURATION` resolves the provider and its Keystone endpoint as a durable operation step.
+3. Immediately before a provider call, the runtime `providerSession(...)` function calls `UserTokenPort.createUnscopedToken(customerId, providerId)`.
+4. `DefaultUserTokenAdapter` creates or reuses an opaque unscoped token for that exact `(customerId, providerId)` pair.
+5. The same runtime function passes the unscoped token to `createScopedSession(...)`.
+6. `OpenStackAuthenticationStrategy` exchanges it for a project-scoped session and caches that session using `(providerId, userProjectToken)` as its key.
+7. Authentication is synchronous inside this function, so unscoped and scoped token creation cannot run in parallel.
+8. Every scheduler resume and polling attempt asks `providerSession(...)` for a valid session; the adapter reuses it or refreshes it near expiry.
+9. Authentication is not persisted as an operation step because it is runtime infrastructure required by any provider API call.
+10. Two users targeting the same OpenStack provider receive different provider sessions.
 
 ```text
 customerId + providerId
           |
           v
-DefaultUserTokenAdapter
+providerSession(): create/reuse unscoped token
           |
           v
 opaque user/project token
           |
           v
-OpenStackVmWorkflow -> Keystone endpoint
+providerSession(): create/reuse scoped token -> OpenStackVmWorkflow -> Keystone endpoint
           |
           v
 OpenStack session cached by provider + user/project token
@@ -62,7 +65,7 @@ Do not add `openstack.username` or `openstack.password` configuration properties
 ## Important Files
 
 - `orchestrator-service/src/main/java/com/mycloud/orchestratorservice/application/service/OrchestratorApplicationService.java`
-  - Runs `CREATE_USER_TOKEN` before loading the provider and logging in.
+  - Calls the runtime session-provider function before provisioning, polling, and rollback provider operations.
 - `orchestrator-service/src/main/java/com/mycloud/orchestratorservice/application/port/out/spi/UserTokenPort.java`
   - Port for resolving or creating a token for a user/project pair.
 - `orchestrator-service/src/main/java/com/mycloud/orchestratorservice/adapter/out/security/DefaultUserTokenAdapter.java`

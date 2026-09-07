@@ -3,9 +3,11 @@ package com.mycloud.orchestratorservice.domain;
 public enum OperationStepName {
     CHECK_CUSTOMER_QUOTA,
     CHECK_RESOURCE_ELIGIBILITY,
-    CREATE_USER_TOKEN,
+    /** Legacy persisted value; authentication now runs through the runtime session provider. */
+    CREATE_UNSCOPED_TOKEN,
     LOAD_PROVIDER_CONFIGURATION,
-    PROVIDER_LOGIN,
+    /** Legacy persisted value; authentication now runs through the runtime session provider. */
+    CREATE_SCOPED_TOKEN,
     PROVISION_RESOURCE,
     WAIT_FOR_VM_ACTIVE,
     ASSIGN_PUBLIC_IP,

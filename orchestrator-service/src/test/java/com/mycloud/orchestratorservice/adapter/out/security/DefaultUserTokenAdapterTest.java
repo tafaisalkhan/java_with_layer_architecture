@@ -13,11 +13,11 @@ class DefaultUserTokenAdapterTest {
         UUID userId = UUID.randomUUID();
         UUID projectId = UUID.randomUUID();
 
-        String token = adapter.createToken(userId, projectId);
+        String token = adapter.createUnscopedToken(userId, projectId);
 
-        assertThat(adapter.createToken(userId, projectId)).isEqualTo(token);
-        assertThat(adapter.createToken(UUID.randomUUID(), projectId)).isNotEqualTo(token);
-        assertThat(adapter.createToken(userId, UUID.randomUUID())).isNotEqualTo(token);
+        assertThat(adapter.createUnscopedToken(userId, projectId)).isEqualTo(token);
+        assertThat(adapter.createUnscopedToken(UUID.randomUUID(), projectId)).isNotEqualTo(token);
+        assertThat(adapter.createUnscopedToken(userId, UUID.randomUUID())).isNotEqualTo(token);
         assertThat(token).doesNotContain(userId.toString()).doesNotContain(projectId.toString());
     }
 }
